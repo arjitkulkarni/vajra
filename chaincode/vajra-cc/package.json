@@ -1,0 +1,25 @@
+{
+  "name": "vajra-cc",
+  "version": "0.2.0",
+  "description": "VAJRA chaincode — DIDRegistry · AssetPassport · PolicyRegistry · AuditTrail",
+  "main": "dist/index.js",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "fabric-chaincode-node start",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "echo \"contract logic is unit-tested in packages/chain-logic\" && exit 0"
+  },
+  "dependencies": {
+    "fabric-contract-api": "^2.5.0",
+    "fabric-shim": "^2.5.0",
+    "@vajra/chain-logic": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.1",
+    "typescript": "^5.6.3"
+  }
+}
