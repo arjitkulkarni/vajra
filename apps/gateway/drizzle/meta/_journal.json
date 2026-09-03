@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1788163488869,
+      "tag": "0000_small_blue_shield",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1788347984340,
+      "tag": "0001_ambiguous_zaladane",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788426540382,
+      "tag": "0002_overrated_obadiah_stane",
+      "breakpoints": true
+    }
+  ]
+}

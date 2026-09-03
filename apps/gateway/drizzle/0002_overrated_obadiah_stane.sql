@@ -1,0 +1,1 @@
+ALTER TABLE "face_templates" ADD COLUMN "model" text DEFAULT 'faceapi' NOT NULL;
