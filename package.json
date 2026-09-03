@@ -1,0 +1,32 @@
+{
+  "name": "vajra",
+  "private": true,
+  "version": "0.2.0",
+  "description": "VAJRA \u2014 A Cryptographic Trust Layer for High-Value Digital Assets (SIH 2026, PS SIH26125)",
+  "packageManager": "pnpm@10.33.3",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel --filter @vajra/gateway --filter @vajra/web dev",
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck",
+    "gateway": "pnpm --filter @vajra/gateway dev",
+    "web": "pnpm --filter @vajra/web dev",
+    "e2e": "pnpm --filter @vajra/gateway e2e",
+    "demo:reset": "pnpm --filter @vajra/gateway demo:reset",
+    "models:fetch": "node scripts/fetch-models.mjs",
+    "admin:url": "pnpm --filter @vajra/gateway admin:url"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.8",
+    "@types/node": "^22.10.1"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  }
+}
