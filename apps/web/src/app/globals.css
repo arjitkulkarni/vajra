@@ -1,0 +1,1069 @@
+@import "tailwindcss";
+
+/*
+ * VAJRA — "DAYLIGHT"
+ * ════════════════════════════════════════════════════════════════════════════════════════════════
+ *
+ * THESIS
+ * The product is read in daylight and the site is read on a phone in a queue. Both now sit on
+ * white. The page is paper: a wide, quiet, editorial ground with real air in it, where the only
+ * things carrying weight are TYPE, IMAGE and a single hairline. Nothing is decorated. Depth comes
+ * from contrast and scale, never from a blur.
+ *
+ * Against that white ground sits its opposite: #151515. The near-black is not a "dark mode" — it
+ * is a MATERIAL, used for exactly two things. Machine-made material (payloads, ledger traces,
+ * hashes — anything a human did not type) and editorial destinations (the closing statement, the
+ * footer, an immersive full-bleed). Wherever it appears it is a deliberate stop, not a theme.
+ *
+ * Token names are historical and now, finally, honest again: "paper" IS the light ground and "ink"
+ * IS the dark text. The ~1,100 call sites that survived Blacklight keep working unchanged; what
+ * changed is the values they read.
+ *
+ * ── ELEVATION ───────────────────────────────────────────────────────────────────────────────────
+ * On white, a shadow is the cheapest and worst way to say "above". Elevation is a WASH and a
+ * HAIRLINE. Shadows exist, they are almost invisible, and they never carry meaning alone.
+ *
+ *   paper          #FFFFFF   the ground. Page, cards, panels, the form half of AuthScreen.
+ *   paper-2        #F7F7F5   ground − 3% ink. Panel headers, table heads, row hover, tab tracks.
+ *   paper-3        #EFEFEC   ground − 6% ink. Meter tracks, rails, pressed, wells.
+ *   paper-raised   #FFFFFF   SOLID white + shadow-float. The only surface allowed to OCCLUDE —
+ *                            sliding tab indicators, popovers, drawers, anything that must hide
+ *                            what is under it rather than tint it. On white an occluder is white.
+ *
+ * paper-2/paper-3 resolve to solid hexes on purpose: ~20 live call sites write bg-paper-2/60 etc.,
+ * which Tailwind compiles to color-mix(…, transparent). A translucent base would collapse those to
+ * nothing. The alpha ladder is --color-overlay-1…4, and on Daylight those washes are BLACK.
+ *
+ * Order of lift: rest = paper → header/thead = paper-2 → selected/pressed = paper-3 →
+ * floating = paper-raised + --shadow-float. Two adjacent surfaces never both draw a border.
+ *
+ * ── THE DARK SCOPE ──────────────────────────────────────────────────────────────────────────────
+ * `.on-ink` re-points the whole token set at its near-black equivalents for one subtree. Because
+ * every Tailwind v4 utility compiles to `var(--color-…)`, an existing component dropped inside it
+ * inverts correctly with no variant classes and no second code path. That is the entire mechanism
+ * behind the near-black sections: <section class="on-ink bg-paper"> and the CTA, the footer, the
+ * immersive band and the console well are all the same components, re-grounded.
+ *
+ * Add a colour token above, add its `.on-ink` counterpart in the same commit.
+ *
+ * ── SEMANTIC COLOUR ─────────────────────────────────────────────────────────────────────────────
+ * Load-bearing, and deliberately dark and desaturated: on white, a bright chip is a highlighter.
+ * Every one clears 4.5:1 as text on paper, on paper-2 AND on its own -soft wash.
+ *
+ *   brass      #2038B8   AGENCY ONLY. Focus ring, link, active nav, selection.        9.05:1
+ *   steel      #5B34C7   verified identity, ownership, PENDING_APPROVAL.              7.61:1
+ *   verdigris  #0B7350   ALLOW / anchored / healthy.                                  5.86:1
+ *   saffron    #8A5400   STEP_UP / elevated risk / warning.                           6.27:1
+ *   oxide      #B3271B   DENY / high risk / revoked / incident.                       6.52:1
+ *
+ * brass is the ONE saturated accent and it does not fill the primary button. On an editorial white
+ * page the primary action is INK — a near-black pill — because a blue button is the single fastest
+ * way to look like every SaaS template ever shipped. Blue stays for focus, links and active state,
+ * where interaction genuinely requires a colour.
+ *
+ * steel is violet, not blue: it sits beside verdigris in the verdict column and a cyan-steel next
+ * to a green-verdigris is the one confusion an operator cannot afford.
+ *
+ * Every -soft is a 13% ALPHA WASH of its own parent hue. Alpha, not a pastel hex, so a chip
+ * composites correctly over paper, paper-2 and paper-3 alike. Colour is never the only carrier:
+ * every state also has a glyph and a word.
+ *
+ * ── RADII ───────────────────────────────────────────────────────────────────────────────────────
+ * Two registers. Instrument housings have chamfers; editorial surfaces have fillets. Buttons on
+ * the marketing layer are true pills; console controls are NOT — "do not make every surface look
+ * like a floating pill" is a rule, not a mood.
+ *
+ *   --radius-tag      4px    IdTag, VerdictStamp, DistributionBar
+ *   --radius-panel    6px    console Panel, StatBand, DataTable wrapper
+ *   --radius-control 10px    console buttons, inputs, tabs, segmented controls
+ *   --radius-field   14px    dropzones, inline banner rows, auth sub-panels, search inputs
+ *   --radius-card    18px    Card, Dialog, Drawer, Stat, EmptyState, gallery cards
+ *   --radius-media   22px    card media wells, mockup bodies
+ *   --radius-frame   28px    browser frames, immersive figures, large visual containers
+ *   --radius-pill   999px    Chip, StateDot, Meter, marketing buttons, filter pills
+ *
+ * ── TYPE ────────────────────────────────────────────────────────────────────────────────────────
+ * Bricolage Grotesque is the display voice, used ONLY at 40px and above where its optical-size
+ * axis opens the apertures and the flared stems begin to read. Instrument Sans carries every word
+ * a person has to operate — nav, labels, body, tables. Geist Mono carries anything a machine
+ * produced. Inter is gone from this project entirely.
+ *
+ *   display 96/72/48 · section 64/48/36 · title 32 · panel 24 · lede 20/17 · body 16 · UI 14
+ *   console extension downward: 13 dense cell · 12 timestamp · 11 eyebrow
+ *
+ *   tracking  −0.045em @72+ · −0.035em @48 · −0.025em @32 · −0.015em @20–24 · 0 @16/14
+ *             +0.12em uppercase @11 for eyebrows — the one place tracking goes positive.
+ *   weight    600 display · 500 UI labels · 400 body.
+ *   leading   0.95 @72+ · 1.02 @48 · 1.1 @32 · 1.6 body · 1.45 dense console rows.
+ *
+ * The clamp()-based `.type-*` classes below are the ONLY place a marketing heading size is
+ * written. A raw `text-[4rem]` on a section heading is a regression: it will not step down.
+ *
+ * ── MOTION ──────────────────────────────────────────────────────────────────────────────────────
+ *   --ease-out-soft  cubic-bezier(.25,1,.5,1)   easeOutQuart. Everything positional. The default.
+ *   --ease-out       cubic-bezier(0,0,.2,1)     colour and opacity crossfades.
+ *   --ease-standard  cubic-bezier(.4,0,.2,1)    anything that reverses or loops.
+ *
+ *   150ms colour · 200ms transform · 300ms entrance · 500ms media · 700ms narrative.
+ *   Entrance is opacity 0→1 with translateY 12px→0, staggered 60ms. Hover is 150–250ms.
+ *
+ * Transitions name their properties explicitly. Never `all`. Transform and opacity only — nothing
+ * here animates a property that triggers layout, so nothing here can shift the page.
+ * prefers-reduced-motion collapses the complete set at the bottom of this file; anything added
+ * above must be added there in the same commit.
+ *
+ * ── CONVENTIONS ─────────────────────────────────────────────────────────────────────────────────
+ *   hover    darken one overlay step (bg-paper-2), or deepen the hue — never lighten.
+ *   active   translate-y-px, no colour change.
+ *   focus    2px brass outline at 2px offset PLUS a brass rim shadow, because DataTable wraps in
+ *            an overflow-x-auto scroller and a bare offset outline is clipped at the first and
+ *            last focusable cell of a horizontally scrolling table.
+ *   selected paper-3, or brass-soft for rows.
+ *   disabled opacity .45. Never a colour swap.
+ *   touch    44px minimum. `.tap` enforces it without changing the visible box.
+ * ════════════════════════════════════════════════════════════════════════════════════════════════
+ */
+
+@theme {
+  /* ─── Ground & elevation ──────────────────────────────────────────────────────────────────── */
+  --color-paper: #ffffff;          /* the ground */
+  --color-paper-2: #f7f7f5;        /* ground − 3% ink — headers, thead, hover, tab track */
+  --color-paper-3: #efefec;        /* ground − 6% ink — rails, tracks, pressed, wells */
+  --color-paper-raised: #ffffff;   /* SOLID occluder: tab indicator, popovers, floats */
+
+  /* ─── Text ramp. Every rung clears 4.5:1 on paper AND paper-2 AND paper-3. ────────────────── */
+  --color-ink: #151515;            /* primary text — 18.3:1 on paper */
+  --color-ink-2: #4e4e4b;          /* body copy, default table cell — 8.4:1 */
+  --color-ink-3: #696966;          /* eyebrow, hint, timestamp, muted cell — 5.3:1 on paper,
+                                      4.9:1 on paper-2, 4.6:1 on paper-3. Real headroom at 11px,
+                                      which is where DataTable `th` lives. Do not lighten. */
+  --color-ink-4: #a5a5a2;          /* ADDITIVE — DECORATIVE ONLY. 2.5:1. Rules, disabled glyphs,
+                                      placeholder marks. Never text a person has to read. */
+
+  /* ─── Hairlines: alpha, so one value works over every surface ─────────────────────────────── */
+  --color-line: rgb(24 24 16 / 0.1);          /* the 1px default → #E8E8E7 on paper */
+  --color-line-strong: rgb(24 24 16 / 0.2);   /* dashed empties, WhyButton, neutral stamps */
+  --color-line-faint: rgb(24 24 16 / 0.055);  /* dense dividers, internal rules */
+
+  /* ─── BRASS — the one saturated accent. AGENCY ONLY, never a state, never the CTA fill. ──── */
+  --color-brass: #2038b8;                       /* 9.05:1 as text; takes white as a fill */
+  --color-brass-deep: #16277f;                  /* "deep" means DARKER on light: hover fill, and
+                                                   the chip text that sits on brass-soft. 12.9:1 */
+  --color-brass-soft: rgb(32 56 184 / 0.13);    /* chip ground, selected row; sized so /60 /50 /40
+                                                   still land as a visible wash */
+  --color-brass-line: rgb(32 56 184 / 0.34);    /* chip rim */
+
+  /* ─── STEEL — verified identity & ownership. Violet so it can never read as ALLOW. ───────── */
+  --color-steel: #5b34c7;                       /* 7.61:1 */
+  --color-steel-soft: rgb(91 52 199 / 0.13);
+  --color-steel-line: rgb(91 52 199 / 0.32);
+
+  /* ─── VERDIGRIS — ALLOW / anchored / healthy ──────────────────────────────────────────────── */
+  --color-verdigris: #0b7350;                   /* 5.86:1 — never adjacent in hue to steel */
+  --color-verdigris-soft: rgb(11 115 80 / 0.13);
+  --color-verdigris-line: rgb(11 115 80 / 0.3);
+
+  /* ─── SAFFRON — STEP_UP / elevated risk / warning ─────────────────────────────────────────── */
+  --color-saffron: #8a5400;                     /* 6.27:1. Amber at AA on white is a dark ochre;
+                                                   a "warning yellow" here would be unreadable. */
+  --color-saffron-deep: #6a4000;                /* the deeper rung: hover and emphasis, not a state */
+  --color-saffron-soft: rgb(138 84 0 / 0.13);
+  --color-saffron-line: rgb(138 84 0 / 0.3);
+
+  /* ─── OXIDE — DENY / high risk / revoked / incident ───────────────────────────────────────── */
+  --color-oxide: #b3271b;                       /* 6.52:1. The reddest point that still clears AA,
+                                                   which is why it holds the largest gap from
+                                                   verdigris under simulated protanopia. With ✗. */
+  --color-oxide-soft: rgb(179 39 27 / 0.13);    /* oxide on this is 5.26:1 — the DENY chip, the one
+                                                   chip in a security console that must not be
+                                                   marginal. Sized for that ratio, not for looks. */
+  --color-oxide-line: rgb(179 39 27 / 0.32);
+
+  /* ─── The near-black material. Machine-made payloads AND editorial destinations. ──────────── */
+  --color-console: #151515;                     /* the material — ConsolePanel, AuthAside, CTA */
+  --color-console-2: #202020;                   /* its hairline surface, inline code fill */
+  --color-console-3: #343432;                   /* scrollbar thumb, internal rules */
+  --color-console-text: #ededeb;                /* monospace payloads — 15.6:1 on the material */
+  --color-console-muted: #9c9c97;               /* labels, captions — 6.6:1 on the material */
+  --color-console-accent: #96aeff;              /* the same accent, lifted for a dark ground 8.5:1 */
+
+  /* ─── The overlay ladder the elevation model is built on. BLACK on Daylight. ──────────────── */
+  --color-overlay-1: rgb(21 21 16 / 0.028);     /* rest lift — striped rows, quiet card fills */
+  --color-overlay-2: rgb(21 21 16 / 0.055);     /* hover (resolves to paper-2) */
+  --color-overlay-3: rgb(21 21 16 / 0.09);      /* pressed / selected (resolves to paper-3) */
+  --color-overlay-4: rgb(21 21 16 / 0.13);      /* floating surfaces */
+  --color-scrim: rgb(21 21 16 / 0.42);          /* modal, drawer and mobile-nav backdrop */
+
+  /* ─── Typography ──────────────────────────────────────────────────────────────────────────── */
+  --font-display: var(--font-bricolage), var(--font-instrument), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-instrument), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* ─── Shape ───────────────────────────────────────────────────────────────────────────────── */
+  --radius-tag: 4px;
+  --radius-panel: 6px;
+  --radius-control: 10px;
+  --radius-field: 14px;
+  --radius-card: 18px;
+  --radius-media: 22px;            /* ADDITIVE — card media wells, mockup bodies */
+  --radius-frame: 28px;            /* ADDITIVE — browser frames, immersive figures */
+  --radius-pill: 999px;
+
+  /* ─── Motion. The --ease-* names ARE a Tailwind v4 namespace, so `ease-out-soft` works as a
+         utility. --dur-* is NOT a namespace — v4 has no duration-* theme key — so those are
+         var() only. Writing `duration-story` as a class silently produces nothing. ─────────── */
+  --ease-out-soft: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --dur-fast: 150ms;
+  --dur-base: 200ms;
+  --dur-slow: 300ms;
+  --dur-media: 500ms;
+  --dur-story: 700ms;
+
+  /* ─── Elevation. Almost invisible on purpose: the hairline is the cue, this is the whisper. ── */
+  --shadow-lift: 0 1px 2px rgb(21 21 16 / 0.05);
+  --shadow-panel:
+    0 1px 2px rgb(21 21 16 / 0.04),
+    0 8px 24px -10px rgb(21 21 16 / 0.09);
+  --shadow-float:
+    0 0 0 1px rgb(21 21 16 / 0.05),
+    0 18px 44px -14px rgb(21 21 16 / 0.2),
+    0 4px 10px -4px rgb(21 21 16 / 0.08);
+  --shadow-media: 0 24px 64px -28px rgb(21 21 16 / 0.28), 0 2px 8px -2px rgb(21 21 16 / 0.05);
+  --shadow-arc: 0 0 0 1px rgb(32 56 184 / 0.4), 0 0 0 5px rgb(32 56 184 / 0.14);
+}
+
+/* ════════════════════════════════════════════════════════════════════════════════════════════════
+   THE DARK SCOPE
+   One class, the whole token set re-pointed. Every component inside inverts with no variant.
+   Values are the near-black mirror of the block above and clear the same ratios against #151515.
+   ════════════════════════════════════════════════════════════════════════════════════════════════ */
+
+.on-ink {
+  color-scheme: dark;
+
+  --color-paper: #151515;
+  --color-paper-2: #1f1f1e;
+  --color-paper-3: #2a2a28;
+  --color-paper-raised: #262624;
+
+  --color-ink: #f5f5f3;            /* 17.4:1 */
+  --color-ink-2: #c4c4bf;          /* 10.4:1 */
+  --color-ink-3: #9c9c97;          /* 6.6:1 */
+  --color-ink-4: #6e6e6a;          /* decorative only */
+
+  --color-line: rgb(245 245 243 / 0.14);
+  --color-line-strong: rgb(245 245 243 / 0.28);
+  --color-line-faint: rgb(245 245 243 / 0.08);
+
+  --color-brass: #96aeff;          /* 8.5:1 */
+  --color-brass-deep: #c2cfff;     /* "deep" flips back to BRIGHTER on a dark ground */
+  --color-brass-soft: rgb(150 174 255 / 0.18);
+  --color-brass-line: rgb(150 174 255 / 0.4);
+
+  --color-steel: #bfa0ff;          /* 8.4:1 */
+  --color-steel-soft: rgb(191 160 255 / 0.18);
+  --color-steel-line: rgb(191 160 255 / 0.4);
+
+  --color-verdigris: #4fd9a6;      /* 10.3:1 */
+  --color-verdigris-soft: rgb(79 217 166 / 0.16);
+  --color-verdigris-line: rgb(79 217 166 / 0.38);
+
+  --color-saffron: #f5c35c;        /* 11.2:1 */
+  --color-saffron-deep: #ffd98c;
+  --color-saffron-soft: rgb(245 195 92 / 0.16);
+  --color-saffron-line: rgb(245 195 92 / 0.38);
+
+  --color-oxide: #ff7a6e;          /* 7.2:1 */
+  --color-oxide-soft: rgb(255 122 110 / 0.16);
+  --color-oxide-line: rgb(255 122 110 / 0.4);
+
+  --color-console: #0d0d0d;        /* the well goes one step deeper than the section around it */
+  --color-console-2: #1a1a1a;
+  --color-console-3: #343432;
+  --color-console-text: #ededeb;
+  --color-console-muted: #9c9c97;
+  --color-console-accent: #96aeff;
+
+  --color-overlay-1: rgb(245 245 243 / 0.04);
+  --color-overlay-2: rgb(245 245 243 / 0.08);
+  --color-overlay-3: rgb(245 245 243 / 0.13);
+  --color-overlay-4: rgb(245 245 243 / 0.18);
+  --color-scrim: rgb(4 4 4 / 0.72);
+
+  --shadow-lift: inset 0 1px 0 rgb(245 245 243 / 0.05), 0 1px 2px rgb(0 0 0 / 0.45);
+  --shadow-panel: inset 0 1px 0 rgb(245 245 243 / 0.045), 0 6px 20px -6px rgb(0 0 0 / 0.5);
+  --shadow-float:
+    0 0 0 1px rgb(245 245 243 / 0.08),
+    0 20px 48px -16px rgb(0 0 0 / 0.7);
+  --shadow-media: 0 32px 72px -30px rgb(0 0 0 / 0.75);
+  --shadow-arc: 0 0 0 1px rgb(150 174 255 / 0.45), 0 0 0 5px rgb(150 174 255 / 0.18);
+}
+
+/* ════════════════════════════════════════════════════════════════════════════════════════════════
+   BASE
+   ════════════════════════════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  color-scheme: light;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
+  /* Anything scrolled to by a #hash clears the floating header instead of hiding under it. */
+  scroll-padding-top: 6rem;
+}
+
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  /* The horizontal-overflow guard for full-bleed and deliberately overflowing editorial figures.
+     `clip` rather than `hidden`: `hidden` on body makes position:sticky stop working. */
+  overflow-x: clip;
+}
+
+::selection {
+  background: rgb(32 56 184 / 0.18);
+  color: var(--color-ink);
+}
+.on-ink ::selection {
+  background: rgb(150 174 255 / 0.3);
+  color: var(--color-ink);
+}
+
+/* The outline is the ring; the rim shadow is the insurance against overflow clipping. */
+:focus-visible {
+  outline: 2px solid var(--color-brass);
+  outline-offset: 2px;
+  border-radius: 6px;
+  box-shadow: var(--shadow-arc);
+}
+
+/* Chrome paints autofilled fields pale yellow. Thirty inputs across twelve files, and one of the
+ * first screens anyone sees is a login form, so this is not optional. */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+textarea:-webkit-autofill,
+select:-webkit-autofill {
+  -webkit-text-fill-color: var(--color-ink);
+  -webkit-box-shadow: 0 0 0 1000px var(--color-paper-2) inset;
+  caret-color: var(--color-ink);
+  transition: background-color 600000s 0s;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+  color: var(--color-ink);
+  text-wrap: balance;
+}
+
+/* Devanagari and Kannada fall back to Noto BY NAME — Bricolage has no coverage there, and falling
+ * back to --font-sans would put Latin metrics and Latin stylistic sets on Indic text. Indic
+ * headings also relax their tracking and open their leading: a −0.045em display value collapses
+ * conjunct forms and a 0.95 line-height clips the matras above them. */
+:lang(hi) h1,
+:lang(hi) h2,
+:lang(hi) h3,
+:lang(hi) .type-display,
+:lang(hi) .type-display-sm,
+:lang(hi) .type-section,
+:lang(hi) .type-title {
+  font-family: var(--font-devanagari), ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: -0.005em;
+  line-height: 1.24;
+  font-feature-settings: normal;
+}
+:lang(kn) h1,
+:lang(kn) h2,
+:lang(kn) h3,
+:lang(kn) .type-display,
+:lang(kn) .type-display-sm,
+:lang(kn) .type-section,
+:lang(kn) .type-title {
+  font-family: var(--font-kannada), ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: -0.005em;
+  line-height: 1.32;
+  font-feature-settings: normal;
+}
+
+code,
+kbd,
+pre,
+.mono {
+  font-family: var(--font-mono);
+  font-variant-ligatures: none;
+}
+
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ════════════════════════════════════════════════════════════════════════════════════════════════
+   TYPE SCALE
+   Every marketing heading size is written HERE and nowhere else. Each is a clamp across the three
+   breakpoints the brief names, so a heading steps down on a tablet without a media query at the
+   call site. A raw text-[Nrem] on a section heading is a regression.
+   ════════════════════════════════════════════════════════════════════════════════════════════════ */
+
+/* 40 → 96. The hero, and nothing else on a page. */
+.type-display {
+  font-family: var(--font-display);
+  font-size: clamp(2.5rem, 1.05rem + 6.4vw, 6rem);
+  font-weight: 600;
+  line-height: 0.95;
+  letter-spacing: -0.045em;
+  text-wrap: balance;
+}
+
+/* 36 → 68. A hero that shares its band with a large visual, and the closing statement. */
+.type-display-sm {
+  font-family: var(--font-display);
+  font-size: clamp(2.25rem, 1.15rem + 4.8vw, 4.25rem);
+  font-weight: 600;
+  line-height: 0.99;
+  letter-spacing: -0.04em;
+  text-wrap: balance;
+}
+
+/* 36 → 64. Section headings. */
+.type-section {
+  font-family: var(--font-display);
+  font-size: clamp(2.25rem, 1.35rem + 3.9vw, 4rem);
+  font-weight: 600;
+  line-height: 1.02;
+  letter-spacing: -0.035em;
+  text-wrap: balance;
+}
+
+/* 28 → 36. Sub-sections and feature statements. */
+.type-title {
+  font-family: var(--font-display);
+  font-size: clamp(1.75rem, 1.35rem + 1.7vw, 2.25rem);
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.028em;
+  text-wrap: balance;
+}
+
+/* 17 → 20. Marketing supporting copy. Never used inside the console. */
+.type-lede {
+  font-size: clamp(1.0625rem, 0.95rem + 0.5vw, 1.25rem);
+  line-height: 1.55;
+  letter-spacing: -0.012em;
+  color: var(--color-ink-3);
+  text-wrap: pretty;
+}
+
+/* 13. Metadata: captions, card sub-lines, timestamps. */
+.type-meta {
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--color-ink-3);
+}
+
+/* ─── Section label: small caps, tracked, muted. The one place tracking goes positive. ──────── */
+.eyebrow {
+  font-family: var(--font-sans);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-ink-3);
+}
+
+/* ════════════════════════════════════════════════════════════════════════════════════════════════
+   LAYOUT & SURFACE UTILITIES
+   ════════════════════════════════════════════════════════════════════════════════════════════════ */
+
+/* The one content measure. Everything editorial hangs off this so the left margin never drifts
+   between bands; a full-bleed section opts out by not using it. */
+.shell {
+  width: 100%;
+  max-width: 1280px;
+  margin-inline: auto;
+  padding-inline: 1.25rem;
+}
+@media (min-width: 768px) {
+  .shell {
+    padding-inline: 2rem;
+  }
+}
+@media (min-width: 1280px) {
+  .shell {
+    padding-inline: 2.5rem;
+  }
+}
+
+/* 80 → 160 vertical rhythm. The brief's major-section spacing, as one class. */
+.band {
+  padding-block: clamp(5rem, 3rem + 8vw, 10rem);
+}
+.band-tight {
+  padding-block: clamp(3.5rem, 2.5rem + 4vw, 6rem);
+}
+
+/* A 44px hit area on a control that must LOOK smaller. The visible box is untouched. */
+.tap {
+  position: relative;
+}
+.tap::after {
+  content: "";
+  position: absolute;
+  inset: 50% auto auto 50%;
+  translate: -50% -50%;
+  min-width: 44px;
+  min-height: 44px;
+  width: 100%;
+  height: 100%;
+}
+
+/* Horizontal filter rails on mobile. Scrolls, keeps its keyboard focus ring, hides its bar. */
+.rail {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  scroll-snap-type: x proximity;
+}
+.rail::-webkit-scrollbar {
+  display: none;
+}
+.rail > * {
+  scroll-snap-align: start;
+}
+
+/* Fades the cut edge of a horizontal rail so a chip never looks truncated by accident. */
+.edge-fade-x {
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 1.25rem, #000 calc(100% - 1.75rem), transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 1.25rem, #000 calc(100% - 1.75rem), transparent);
+}
+
+/* The blueprint ruling. Static, masked to a soft ellipse so it never reaches an edge. */
+.hairline-grid {
+  background-image:
+    linear-gradient(to right, var(--color-line-faint) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--color-line-faint) 1px, transparent 1px);
+  background-size: 72px 72px;
+  -webkit-mask-image: radial-gradient(ellipse 80% 62% at 50% 38%, #000 32%, transparent 100%);
+  mask-image: radial-gradient(ellipse 80% 62% at 50% 38%, #000 32%, transparent 100%);
+}
+
+/* Tooth on the ground, not speckle. Black noise on white reads roughly twice as quiet as white
+   noise on near-black, so the opacity goes UP relative to Blacklight and it multiplies. */
+.grain::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.05;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+.on-ink .grain::before {
+  opacity: 0.03;
+  mix-blend-mode: screen;
+}
+
+/* ════════════════════════════════════════════════════════════════════════════════════════════════
+   MOTION
+   Transform and opacity only. Explicit transition-property. Nothing here triggers layout.
+   ════════════════════════════════════════════════════════════════════════════════════════════════ */
+
+.reveal {
+  opacity: 0;
+  transform: translate3d(0, 12px, 0);
+  transition:
+    opacity var(--dur-slow) var(--ease-out-soft),
+    transform var(--dur-slow) var(--ease-out-soft);
+}
+.reveal[data-shown="true"] {
+  opacity: 1;
+  transform: none;
+}
+
+/* A revealed group that staggers its own children — no per-child delay prop, no JS. `--stagger`
+   overrides the step; the nth-child ladder covers the twelve items any one group ever holds. */
+.reveal-group > * {
+  opacity: 0;
+  transform: translate3d(0, 12px, 0);
+  transition:
+    opacity var(--dur-slow) var(--ease-out-soft),
+    transform var(--dur-slow) var(--ease-out-soft);
+}
+.reveal-group[data-shown="true"] > * {
+  opacity: 1;
+  transform: none;
+}
+.reveal-group > *:nth-child(1) { transition-delay: calc(0 * var(--stagger, 60ms)); }
+.reveal-group > *:nth-child(2) { transition-delay: calc(1 * var(--stagger, 60ms)); }
+.reveal-group > *:nth-child(3) { transition-delay: calc(2 * var(--stagger, 60ms)); }
+.reveal-group > *:nth-child(4) { transition-delay: calc(3 * var(--stagger, 60ms)); }
+.reveal-group > *:nth-child(5) { transition-delay: calc(4 * var(--stagger, 60ms)); }
+.reveal-group > *:nth-child(6) { transition-delay: calc(5 * var(--stagger, 60ms)); }
+.reveal-group > *:nth-child(7) { transition-delay: calc(6 * var(--stagger, 60ms)); }
+.reveal-group > *:nth-child(8) { transition-delay: calc(7 * var(--stagger, 60ms)); }
+.reveal-group > *:nth-child(9) { transition-delay: calc(8 * var(--stagger, 60ms)); }
+.reveal-group > *:nth-child(10) { transition-delay: calc(9 * var(--stagger, 60ms)); }
+.reveal-group > *:nth-child(11) { transition-delay: calc(10 * var(--stagger, 60ms)); }
+.reveal-group > *:nth-child(n + 12) { transition-delay: calc(11 * var(--stagger, 60ms)); }
+
+/* Entrance. Staggered by inline animation-delay where a group is not available. */
+@keyframes vajra-rise {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 14px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.rise {
+  animation: vajra-rise 460ms var(--ease-out-soft) both;
+}
+
+/* The hero, set per-line by an inline --line index. Slower and taller than .rise: this is the one
+   entrance on the site allowed to be noticed. */
+@keyframes vajra-lift {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 0.34em, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.lift {
+  animation: vajra-lift 720ms var(--ease-out-soft) both;
+  animation-delay: calc(var(--line, 0) * 90ms);
+}
+
+/* The seal. A 5% scale-in reads as a stamp; 15% reads as a flash. */
+@keyframes vajra-stamp {
+  0% {
+    opacity: 0;
+    transform: scale(1.05);
+  }
+  60% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.stamp {
+  animation: vajra-stamp var(--dur-base) var(--ease-out-soft) both;
+}
+
+/* The one animation an operator sees hundreds of times a day. It stays at 200ms. */
+@keyframes vajra-tick {
+  from {
+    opacity: 0;
+    transform: translate3d(-5px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.tick {
+  animation: vajra-tick var(--dur-base) var(--ease-out-soft) both;
+}
+
+@keyframes vajra-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+.pulse {
+  animation: vajra-pulse 1.4s var(--ease-standard) infinite;
+}
+
+@keyframes vajra-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+.draw {
+  stroke-dasharray: 1000;
+  stroke-dashoffset: 1000;
+  animation: vajra-draw 900ms var(--ease-out-soft) forwards;
+}
+
+/* The shimmer carries its own opaque body. `background: <gradient>` sets background-image only, so
+   a gradient of translucent stops shows the page through and stops reading as a sweep. */
+@keyframes vajra-sweep {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+.skeleton {
+  background-color: #efefec;
+  background-image: linear-gradient(
+    90deg,
+    rgb(21 21 16 / 0.015) 25%,
+    rgb(21 21 16 / 0.065) 50%,
+    rgb(21 21 16 / 0.015) 75%
+  );
+  background-size: 200% 100%;
+  animation: vajra-sweep 1.6s var(--ease-standard) infinite;
+}
+.on-ink .skeleton {
+  background-color: #232322;
+  background-image: linear-gradient(
+    90deg,
+    rgb(245 245 243 / 0.03) 25%,
+    rgb(245 245 243 / 0.09) 50%,
+    rgb(245 245 243 / 0.03) 75%
+  );
+}
+
+/* The logo rail. One track duplicated, translated by exactly −50%, so the seam never lands. */
+@keyframes vajra-marquee {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+.marquee {
+  display: flex;
+  width: max-content;
+  animation: vajra-marquee var(--marquee-dur, 46s) linear infinite;
+  will-change: transform;
+}
+.marquee:hover,
+.marquee:focus-within {
+  animation-play-state: paused;
+}
+
+/* The table-row hover wash. A background-IMAGE, so it composites OVER whatever verdict tone the
+   caller painted on the row rather than replacing it — a DENY row must not stop looking denied at
+   the moment the operator points at it. Black on white, white on near-black; a literal rgba() in
+   the component's class string could only ever have been right on one of the two. */
+.row-hover:hover {
+  background-image: linear-gradient(rgb(21 21 16 / 0.045), rgb(21 21 16 / 0.045));
+}
+.on-ink .row-hover:hover {
+  background-image: linear-gradient(rgb(245 245 243 / 0.06), rgb(245 245 243 / 0.06));
+}
+
+/* Media hover. The well clips; the media inside is what moves, so nothing reflows. */
+.media-zoom {
+  transition: transform var(--dur-media) var(--ease-out-soft);
+  will-change: transform;
+}
+.group:hover .media-zoom,
+.group:focus-visible .media-zoom,
+.group:focus-within .media-zoom {
+  transform: scale(1.025);
+}
+
+/* ─── Scrollbars inside dark console panels ─────────────────────────────────────────────────── */
+.console-scroll {
+  scrollbar-color: var(--color-console-3) var(--color-console);
+  scrollbar-width: thin;
+}
+.console-scroll::-webkit-scrollbar {
+  height: 8px;
+  width: 8px;
+}
+.console-scroll::-webkit-scrollbar-track {
+  background: var(--color-console);
+}
+.console-scroll::-webkit-scrollbar-thumb {
+  background: var(--color-console-3);
+  border-radius: var(--radius-pill);
+}
+.console-scroll::-webkit-scrollbar-thumb:hover {
+  background: #4a4a47;
+}
+
+/* ─── Console layer ─────────────────────────────────────────────────────────────────────────── */
+/*
+ * Inside /app the voice changes: this is a control plane, not a brochure. Rows get tighter,
+ * numerals become tabular by default, radii drop a full rung to the tag/panel register, and the
+ * selection colour switches to steel so a highlighted hash never looks like a primary action.
+ */
+.console-root {
+  font-size: 15px;
+  line-height: 1.45;
+}
+.console-root table {
+  font-variant-numeric: tabular-nums;
+}
+.console-root ::selection {
+  background: rgb(91 52 199 / 0.18);
+  color: var(--color-ink);
+}
+
+@keyframes vajra-slide-in {
+  from {
+    transform: translate3d(16px, 0, 0);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+/* The replay cursor. Incident replay only. */
+@keyframes vajra-scan {
+  from {
+    transform: translateY(-100%);
+  }
+  to {
+    transform: translateY(100%);
+  }
+}
+.scan::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(180deg, transparent, rgb(32 56 184 / 0.07), transparent);
+  animation: vajra-scan 1.6s linear infinite;
+}
+
+/* ════════════════════════════════════════════════════════════════════════════════════════════════
+   THE AUTH SCREEN
+   A split: the near-black aside carries every moving thing, the white form half is dead still.
+   ════════════════════════════════════════════════════════════════════════════════════════════════ */
+
+/* Two light sources drifting behind the dark half. Long, offset periods so the pair never visibly
+   repeats a pose. */
+@keyframes vajra-drift-a {
+  0% {
+    transform: translate3d(-6%, -4%, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(8%, 6%, 0) scale(1.18);
+  }
+  100% {
+    transform: translate3d(-6%, -4%, 0) scale(1);
+  }
+}
+@keyframes vajra-drift-b {
+  0% {
+    transform: translate3d(6%, 8%, 0) scale(1.1);
+  }
+  50% {
+    transform: translate3d(-8%, -6%, 0) scale(0.92);
+  }
+  100% {
+    transform: translate3d(6%, 8%, 0) scale(1.1);
+  }
+}
+
+.auth-aurora::before,
+.auth-aurora::after {
+  content: "";
+  position: absolute;
+  inset: -25%;
+  pointer-events: none;
+  border-radius: 50%;
+  filter: blur(90px);
+  will-change: transform;
+}
+.auth-aurora::before {
+  background: radial-gradient(circle at 30% 30%, rgb(150 174 255 / 0.2), transparent 62%);
+  animation: vajra-drift-a 26s var(--ease-standard) infinite;
+}
+.auth-aurora::after {
+  background: radial-gradient(circle at 70% 65%, rgb(191 160 255 / 0.18), transparent 60%);
+  animation: vajra-drift-b 34s var(--ease-standard) infinite;
+}
+
+/* The lattice, rendered as instrument glass over the dark aside. Static. */
+.auth-lattice {
+  background-image:
+    linear-gradient(to right, rgb(255 255 255 / 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(255 255 255 / 0.05) 1px, transparent 1px);
+  background-size: 44px 44px;
+  -webkit-mask-image: radial-gradient(ellipse 90% 70% at 50% 40%, #000 40%, transparent 100%);
+  mask-image: radial-gradient(ellipse 90% 70% at 50% 40%, #000 40%, transparent 100%);
+}
+
+/* The mark draws itself, then the fill arrives underneath. */
+@keyframes vajra-bolt-draw {
+  from {
+    stroke-dashoffset: 120;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes vajra-bolt-fill {
+  from {
+    fill-opacity: 0;
+  }
+  to {
+    fill-opacity: 1;
+  }
+}
+.auth-bolt-stroke {
+  stroke-dasharray: 120;
+  animation: vajra-bolt-draw 1200ms var(--ease-out-soft) 200ms both;
+}
+.auth-bolt-fill {
+  animation: vajra-bolt-fill var(--dur-story) var(--ease-out-soft) 1000ms both;
+}
+
+/* The five-verification rail: a hairline fills as each gate takes its turn. It stays LINEAR — it
+   is a progress bar and must read as elapsed time. AuthAside overrides the duration inline. */
+@keyframes vajra-gate-fill {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+.auth-gate-fill {
+  transform-origin: left center;
+  animation: vajra-gate-fill 1500ms linear both;
+}
+@keyframes vajra-gate-halo {
+  0% {
+    opacity: 0.7;
+    transform: scale(1);
+  }
+  70% {
+    opacity: 0;
+    transform: scale(2);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(2);
+  }
+}
+.auth-gate-halo {
+  animation: vajra-gate-halo 1500ms var(--ease-out-soft) infinite;
+}
+
+/* Tab indicator and panel cross-fade. The indicator must OCCLUDE its track, so it gets the solid
+   raised token plus the lift — on white, an occluder is white with a whisper of shadow. */
+.auth-tab-indicator {
+  background-color: var(--color-paper-raised);
+  transition: transform var(--dur-slow) var(--ease-standard);
+  will-change: transform;
+}
+@keyframes vajra-panel-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.auth-panel {
+  animation: vajra-panel-in 260ms var(--ease-out-soft) both;
+}
+
+/* ════════════════════════════════════════════════════════════════════════════════════════════════
+   REDUCED MOTION — one exhaustive block. Every animation declared above appears here.
+   Add an animation above, add it here in the same commit.
+   ════════════════════════════════════════════════════════════════════════════════════════════════ */
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .reveal,
+  .reveal-group > * {
+    opacity: 1;
+    transform: none;
+    transition: none;
+    transition-delay: 0ms;
+  }
+  .stamp,
+  .tick,
+  .pulse,
+  .draw,
+  .skeleton,
+  .rise,
+  .lift,
+  .marquee,
+  .scan::after,
+  .auth-aurora::before,
+  .auth-aurora::after,
+  .auth-bolt-stroke,
+  .auth-bolt-fill,
+  .auth-gate-fill,
+  .auth-gate-halo,
+  .auth-panel,
+  [class*="vajra-slide-in"] {
+    animation: none;
+  }
+  /* An animation:none skeleton would otherwise freeze mid-gradient at whatever position it held,
+     leaving a permanent diagonal stripe. It resolves to a flat surface instead. */
+  .skeleton {
+    background-image: none;
+    background-color: var(--color-paper-3);
+  }
+  .scan::after {
+    background: none;
+  }
+  .draw {
+    stroke-dashoffset: 0;
+  }
+  .lift {
+    opacity: 1;
+    transform: none;
+  }
+  .auth-bolt-stroke {
+    stroke-dashoffset: 0;
+  }
+  .auth-bolt-fill {
+    fill-opacity: 1;
+  }
+  .auth-gate-fill {
+    transform: scaleX(1);
+  }
+  .auth-tab-indicator {
+    transition: none;
+  }
+  .media-zoom,
+  .group:hover .media-zoom,
+  .group:focus-visible .media-zoom,
+  .group:focus-within .media-zoom {
+    transform: none;
+    transition: none;
+  }
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
