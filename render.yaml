@@ -1,0 +1,57 @@
+# ─── VAJRA Trust Gateway on Render ───────────────────────────────────────────
+#
+# The gateway is a process, not a set of request handlers: a Fastify listener, the outbox worker
+# that anchors audit events to the ledger, and an embedded Postgres that holds the hash chain. It
+# needs a host that keeps one running, which is why it lives here and the web app lives on Vercel.
+#
+#   Render → New → Blueprint → this repository.
+#
+# Then set WEB_ORIGIN to the deployed web app's origin, and point that app's NEXT_PUBLIC_GATEWAY_URL
+# back at this service. Full walkthrough, both sides: docs/DEPLOYMENT.md.
+#
+# On the free plan the service sleeps after 15 minutes idle and its filesystem is ephemeral, so the
+# database and the asset store come back empty together on wake and DEMO_MODE reseeds them. That is
+# coherent but forgetful; docs/DEPLOYMENT.md has the Postgres-and-disk upgrade for state that lasts.
+services:
+  - type: web
+    name: vajra-gateway
+    runtime: node
+    plan: free
+    region: singapore
+    buildCommand: corepack enable && pnpm install --frozen-lockfile --filter @vajra/gateway...
+    startCommand: pnpm --filter @vajra/gateway start
+    healthCheckPath: /v1/health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+
+      # The CORS allowlist — the web app's origin, or several comma-separated. Render leaves this
+      # for you to fill in because only you know where the web app landed.
+      - key: WEB_ORIGIN
+        sync: false
+
+      # Every external service has a local default, and these are those defaults: embedded Postgres,
+      # the hash-chained lite ledger, the content-addressed local asset store. See README.md
+      # "Switching on the real thing" for what each one swaps to.
+      - key: DB_MODE
+        value: pglite
+      - key: LEDGER_MODE
+        value: lite
+      - key: STORAGE_MODE
+        value: fs
+      - key: DEMO_MODE
+        value: "true"
+      - key: LOG_LEVEL
+        value: info
+
+      # Generated once and then held by Render, never in the repository. Rotating
+      # ADMIN_CONSOLE_SECRET revokes every console link handed out before it; rotating MASTER_KEK
+      # makes assets already in the store unreadable.
+      - key: SESSION_JWT_SECRET
+        generateValue: true
+      - key: MASTER_KEK
+        generateValue: true
+      - key: PROOF_SIGNING_SEED
+        generateValue: true
+      - key: ADMIN_CONSOLE_SECRET
+        generateValue: true

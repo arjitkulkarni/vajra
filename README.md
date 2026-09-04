@@ -167,6 +167,15 @@ hashes. It is a development and fail-over driver, not a consensus network, and `
 The two-person rule is enforced identically in both — the ledger itself refuses a transfer whose
 approver is the requester.
 
+## Deploy it
+
+Two hosts, because the halves are different shapes. The web app is a Next.js build and goes to
+Vercel; the gateway is a process — listener, outbox worker, embedded Postgres, asset store — and
+goes to Render from the blueprint in [render.yaml](render.yaml), or to any host that runs Node. The
+two URLs point at each other: `NEXT_PUBLIC_GATEWAY_URL` on the web side, `WEB_ORIGIN` on the
+gateway's. Both sides step by step, including what the free tier forgets between naps:
+[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+
 ## The LLM, and where it is not
 
 The Analyst narrates; it never decides. It turns a `DecisionTrace` into plain language, an incident
