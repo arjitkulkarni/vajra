@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "tsx watch --clear-screen=false src/server.ts",
     "start": "tsx src/server.ts",
-    "build": "tsc --noEmit -p tsconfig.json",
+    "build": "tsc --version && tsc --noEmit --strict -p tsconfig.json",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "e2e": "tsx scripts/e2e.ts",
