@@ -6,7 +6,7 @@ const nextConfig = {
    * thing to do and used to 404, so send those to the default locale rather than a dead end.
    */
   async redirects() {
-    const sections = ["admin", "app", "login", "signup", "about", "demo", "verify"];
+    const sections = ["admin", "app", "login", "signup", "about", "demo", "verify", "landingpage"];
     return sections.flatMap((s) => [
       { source: `/${s}`, destination: `/en/${s}`, permanent: false },
       { source: `/${s}/:path*`, destination: `/en/${s}/:path*`, permanent: false },

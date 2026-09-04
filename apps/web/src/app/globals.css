@@ -553,6 +553,35 @@ pre,
   mask-image: linear-gradient(90deg, transparent, #000 1.25rem, #000 calc(100% - 1.75rem), transparent);
 }
 
+/*
+ * A rail is a MOBILE affordance: a row too wide for a phone, scrolled sideways, with its cut edge
+ * masked so a chip never looks truncated by accident. Above the width at which the same row wraps
+ * or becomes a grid it is not a scroller any more — and then the mask is actively wrong, because it
+ * fades the first and last chip of a row that is not going anywhere, which reads as a rendering
+ * bug rather than as an affordance.
+ *
+ * These release it at the two breakpoints the site actually uses. They live HERE rather than as
+ * `lg:[mask-image:none]` at the call site because `.rail` and `.edge-fade-x` are plain classes
+ * declared after `@import "tailwindcss"`: a utility of equal specificity loses to them on source
+ * order, and the override silently does nothing.
+ */
+@media (min-width: 640px) {
+  .rail-until-sm {
+    overflow-x: visible;
+    scroll-snap-type: none;
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+}
+@media (min-width: 1024px) {
+  .rail-until-lg {
+    overflow-x: visible;
+    scroll-snap-type: none;
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+}
+
 /* The blueprint ruling. Static, masked to a soft ellipse so it never reaches an edge. */
 .hairline-grid {
   background-image:
@@ -989,6 +1018,65 @@ pre,
 }
 
 /* ════════════════════════════════════════════════════════════════════════════════════════════════
+   THE LANDING PAGE
+   Two loops and one scroll-driven draw. Everything else on /landingpage is .reveal, .reveal-group,
+   .lift, .tick and .marquee, which already exist above.
+   ════════════════════════════════════════════════════════════════════════════════════════════════ */
+
+/* The hairline that carries a signal. Used on the trust-firewall rays and the ledger connectors: a
+   dashed stroke marching along its own path reads as FLOW where a static line reads as a diagram.
+   Slow enough to be atmosphere — at 1.6s per 24 units it is a drift, not a chase. */
+@keyframes vajra-flow {
+  to {
+    stroke-dashoffset: -24;
+  }
+}
+.flow {
+  stroke-dasharray: 3 9;
+  animation: vajra-flow 1.6s linear infinite;
+}
+
+/* The five terms of the access expression, taking their turn. Each term carries its own `--term`
+   index and the cycle is five beats long, so exactly one term is lit at a time and the conjunction
+   reads left to right the way it is evaluated. Colour only: nothing here can move the line. */
+@keyframes vajra-term {
+  0%,
+  13% {
+    color: var(--color-brass);
+    border-color: var(--color-brass-line);
+    background-color: var(--color-brass-soft);
+  }
+  21%,
+  100% {
+    color: var(--color-ink-2);
+    border-color: var(--color-line);
+    background-color: transparent;
+  }
+}
+.term {
+  animation: vajra-term 5s var(--ease-standard) infinite;
+  animation-delay: calc(var(--term, 0) * 1s);
+}
+
+/* A path that draws itself when it arrives.
+ *
+ * It requires `pathLength="1"` on the element, which tells SVG to report its own length as 1 unit
+ * no matter what it actually is — so one dash value is correct for every path, at every viewBox,
+ * with no measurement. The shared `.draw` utility above hard-codes a 1000-unit dasharray, which is
+ * right for exactly one path in any codebase and shows up as a stroke that finishes early or never
+ * finishes at all on all the others. Measuring with `getTotalLength()` and writing the result as a
+ * custom property is the other way to do it and it is a trap: React rewrites the `style` attribute
+ * on re-render and silently drops any property set imperatively on the same element. */
+.trace-path {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  transition: stroke-dashoffset 1200ms var(--ease-out-soft);
+}
+.trace-path[data-shown="true"] {
+  stroke-dashoffset: 0;
+}
+
+/* ════════════════════════════════════════════════════════════════════════════════════════════════
    REDUCED MOTION — one exhaustive block. Every animation declared above appears here.
    Add an animation above, add it here in the same commit.
    ════════════════════════════════════════════════════════════════════════════════════════════════ */
@@ -1008,6 +1096,8 @@ pre,
   .tick,
   .pulse,
   .draw,
+  .flow,
+  .term,
   .skeleton,
   .rise,
   .lift,
@@ -1034,6 +1124,15 @@ pre,
   }
   .draw {
     stroke-dashoffset: 0;
+  }
+  .flow {
+    stroke-dasharray: none;
+  }
+  .trace-path,
+  .trace-path[data-shown="true"] {
+    stroke-dasharray: none;
+    stroke-dashoffset: 0;
+    transition: none;
   }
   .lift {
     opacity: 1;
