@@ -3,7 +3,7 @@
  *   context → device → health → risk → policies → decide() → audit → (proof | step-up | approval) → incident rules
  */
 import { and, eq } from "drizzle-orm";
-import type { AccessDecisionResponse, AccessRequestBody, AttestationBody, DecisionTrace, DemoScenario, RiskResult, Role, Sensitivity, TrustScores, Verdict } from "@vajra/contracts";
+import type { AccessDecisionResponse, AccessRequestBody, ApprovalDecideBody, AttestationBody, DecisionTrace, DemoScenario, RiskResult, Role, Sensitivity, TrustScores, Verdict } from "@vajra/contracts";
 import { decide, effectivePermissions, type DecisionOutput } from "@vajra/policy";
 import { accessRequests, approvals, assets, assetTransfers, devices, users } from "../../db/schema";
 import { withTx, type AppContext } from "../../context";
@@ -464,7 +464,7 @@ export async function challengeApproval(ctx: AppContext, session: Session, appro
   return createNonce(ctx.db, "approval", approvalId, session.user.id);
 }
 
-export async function decideApproval(ctx: AppContext, session: Session, approvalId: string, body: { approve: boolean; reason?: string; attestation: AttestationBody }) {
+export async function decideApproval(ctx: AppContext, session: Session, approvalId: string, body: ApprovalDecideBody) {
   const t0 = Date.now();
   const me = session.user;
   const ap = (await ctx.db.select().from(approvals).where(eq(approvals.id, approvalId)).limit(1))[0];
