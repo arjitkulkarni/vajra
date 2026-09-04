@@ -36,7 +36,7 @@ three-class classifier over an 80×80 patch: live, print attack, replay attack.
 
 It answers a different question from the six passive liveness signals, which is why it runs beside
 them rather than as a seventh one. Those signals are hand-written measurements — nose depth out of
-the face plane, non-rigid micro-motion, blink duration, focus, chroma spread — and each refuses one
+the face plane, non-rigid micro-motion, challenge reaction time, focus, chroma spread — and each refuses one
 specific thing. This is a network trained end-to-end on real attacks, judging the whole scene: the
 bezel of a phone, the edge of a print, the sheen of a screen. It generalises where a Laplacian
 variance cannot, and a confident spoof verdict is escalated as a presentation attack rather than

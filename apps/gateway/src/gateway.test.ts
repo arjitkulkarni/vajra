@@ -357,7 +357,7 @@ describe("re-enrolment", () => {
           faceMatchScore: 78,
           livenessMode: "faceapi",
           livenessScore: 0.71,
-          livenessSignals: { depth: 0.6, motion: 0.55, blink: 1, focus: 0.8, texture: 0.7 },
+          livenessSignals: { depth: 0.6, motion: 0.55, response: 1, focus: 0.8, texture: 0.7 },
         },
       }),
     );
@@ -459,7 +459,7 @@ describe("live AI check", () => {
         signature: ed25519.sign(kp.privateKey, req.json.stepUp.nonce),
         livenessMode: "faceapi",
         livenessScore: 0.82,
-        livenessSignals: { depth: 0.8, motion: 0.7, blink: 1, focus: 0.9, texture: 0.8 },
+        livenessSignals: { depth: 0.8, motion: 0.7, response: 1, focus: 0.9, texture: 0.8 },
         // ... of a face the model is near-certain was not live. Well under ANTISPOOF_MIN_LIVE.
         spoofCheck: { model: "minifasnet_v2_2.7_80x80", samples: 5, liveProbability: 0.01 },
       },

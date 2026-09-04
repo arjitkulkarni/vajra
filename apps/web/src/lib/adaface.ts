@@ -103,7 +103,7 @@ function centroid(points: Point[], from: number, to: number): Point {
  * The five points AdaFace aligns on, read off face-api's 68.
  *
  * The eyes are the centroids of their six-point contours rather than any single landmark: an eye
- * corner moves with a blink, and the challenge deliberately asks for blinks.
+ * corner shifts every time the lids move, and they move throughout.
  */
 export function fivePoints(points: Point[]): [Point, Point, Point, Point, Point] | null {
   if (points.length < 68) return null;

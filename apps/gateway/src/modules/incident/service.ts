@@ -46,7 +46,8 @@ export interface EvaluateInput {
    *
    * It goes straight to S3 on the first occurrence, where a merely failed liveness check needs two.
    * The difference is what the evidence says about intent: a low passive score is usually bad light
-   * or a person who did not blink when asked, and locking someone out of their own account for that
+   * or a person who never answered the challenge they were given, and locking someone out of their
+   * own account for that
    * would be its own kind of failure. A model that has just watched a screen being held up in front
    * of a camera is not describing a bad afternoon, and the session it belongs to is not one to leave
    * open while somebody looks into it.

@@ -21,7 +21,7 @@
  * person throughout rather than who they are.
  *
  * Three gates have to pass before the nonce is signed:
- *   1. the challenge (blink / turn / smile) completes,
+ *   1. the challenge (turn / smile) completes,
  *   2. the passive liveness score clears NEXT_PUBLIC_LIVENESS_MIN_SCORE,
  *   3. in step-up mode, the live face matches the template enrolled in this browser.
  *
@@ -87,7 +87,7 @@ type Phase = "idle" | "loading" | "detect" | "challenge" | "embedding" | "signin
 /** Why we dropped to the simulated path, so the UI can say something true rather than generic. */
 type SimReason = "configured" | "models" | "load" | "camera" | "timeout";
 
-const SIGNAL_ORDER: SignalId[] = ["depth", "motion", "blink", "focus", "texture", "consistency"];
+const SIGNAL_ORDER: SignalId[] = ["depth", "motion", "response", "focus", "texture", "consistency"];
 const DESCRIPTOR_INTERVAL_MS = 400;
 const MIN_DESCRIPTORS = 3;
 const CAPTURE_TIMEOUT_MS = 45_000;

@@ -64,7 +64,7 @@ const EnvSchema = z.object({
    *
    * `FACE_MATCH_MIN_SCORE` is a descriptor distance turned inside out — score = (1 − distance) × 100
    * — so the default of 45 is the 0.55 match distance the enrolment template was tuned for.
-   * `LIVENESS_MIN_SCORE` is the passive anti-spoof composite over depth, motion, blink, focus and
+   * `LIVENESS_MIN_SCORE` is the passive anti-spoof composite over depth, motion, reaction, focus and
    * texture. Raise either to be harsher; both are recorded on every check whatever they are set to.
    */
   FACE_MATCH_MIN_SCORE: z.coerce.number().int().min(0).max(100).default(45),

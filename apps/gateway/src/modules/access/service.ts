@@ -194,7 +194,7 @@ export async function requestAccess(ctx: AppContext, session: Session, assetUid:
     certId = fin.certId;
   } else if (decision.verdict === "STEP_UP") {
     const n = await createNonce(ctx.db, "step_up", request.id, user.id);
-    stepUp = { nonce: n.nonce, challenge: n.challenge as ("blink" | "turn_left" | "turn_right" | "smile")[], expiresAt: n.expiresAt };
+    stepUp = { nonce: n.nonce, challenge: n.challenge as ("turn_left" | "turn_right" | "smile")[], expiresAt: n.expiresAt };
   } else {
     const proof = await buildProof(ctx, proofInput(request, asset, user, decision.trace, trust, risk, auditEvent, null, []));
     certId = proof.certId;

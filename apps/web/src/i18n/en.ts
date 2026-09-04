@@ -302,7 +302,7 @@ export const en = {
     scenes: {
       onboard: {
         title: "Create an identity",
-        body: "A volunteer looks at the camera, blinks, and turns their head. A DID appears. Open the browser network tab: the only thing sent is a public key, a signature and a nonce.",
+        body: "A volunteer looks at the camera, turns their head, and smiles. A DID appears. Open the browser network tab: the only thing sent is a public key, a signature and a nonce.",
         watch: "“Biometric data stored: 0 bytes.” The face descriptor never leaves the laptop.",
       },
       vault: {
@@ -364,11 +364,11 @@ export const en = {
     embedding: "Computing the face embedding…",
     loadingAdaFace: "Loading AdaFace…",
     detector: { ssd: "SSD MobileNet v1", tiny: "Tiny Face Detector" },
-    signals: { depth: "Depth", motion: "Micro-motion", blink: "Blink", focus: "Focus", texture: "Texture", consistency: "One person", ai: "AI check" },
+    signals: { depth: "Depth", motion: "Micro-motion", response: "Reaction", focus: "Focus", texture: "Texture", consistency: "One person", ai: "AI check" },
     signalHelp: {
       depth: "How far the nose stands out of the plane the rest of the face lies in. A photo or a screen is flat; a head is not.",
-      motion: "Independent movement of brows, mouth and eyelids. A held-up image is rigid.",
-      blink: "A real open-closed-open transition of human duration, not a slow occlusion.",
+      motion: "Independent movement of brows, eyelids and mouth — a blink included. A held-up image is rigid.",
+      response: "How long each step took to answer after it was asked. A recording cannot answer a challenge it has not heard yet.",
       focus: "Sharpness of the face region. Rejects the blurred print and the low-grade replay.",
       texture: "Blown highlights and narrowed colour spread — what a re-photographed display looks like.",
       consistency: "One face in frame throughout, and the same face from first frame to last.",
@@ -381,7 +381,7 @@ export const en = {
       light: "More light on your face, please",
       multiple: "More than one face in frame",
     },
-    steps: { detect: "Find your face", blink: "Blink slowly", turn_left: "Turn your head to your left", turn_right: "Turn your head to your right", smile: "Smile", sign: "Sign the challenge" },
+    steps: { detect: "Find your face", turn_left: "Turn your head to your left", turn_right: "Turn your head to your right", smile: "Smile", sign: "Sign the challenge" },
     stepPending: "Waiting",
     stepActive: "Now",
     stepDone: "Done",
@@ -595,7 +595,7 @@ export const en = {
       employee_id: "The ID on your card is free to claim, or already belongs to you.",
       id_document: "Your employee ID card, encrypted and content-addressed.",
       face_match: "How closely the live face matches the face on the card.",
-      liveness: "Depth, motion, blink, focus and texture — measured on this device.",
+      liveness: "Depth, motion, reaction, focus and texture — measured on this device.",
       did_signature: "A signature over the server's single-use challenge, by the key in this browser.",
     },
     employeeId: {
@@ -1660,7 +1660,7 @@ export const en = {
         q9: {
           role: "Head of engineering",
           question: "Does a deepfake get through?",
-          answer: "The challenge is active and the anti-spoof signals are passive — depth, micro-motion, blink, focus, texture and one-person consistency, all measured on the device. A printed photo is flat, and a replayed video is not sharp enough.",
+          answer: "The challenge is active and the anti-spoof signals are passive — depth, micro-motion, reaction time, focus, texture and one-person consistency, all measured on the device. A printed photo is flat, and a replayed video is not sharp enough.",
         },
       },
     },

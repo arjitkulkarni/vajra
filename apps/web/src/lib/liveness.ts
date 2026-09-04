@@ -1,7 +1,7 @@
 /**
  * On-device liveness: the anti-spoofing engine behind the face check.
  *
- * A challenge on its own ("blink, then turn your head") proves very little — a video replay does
+ * A challenge on its own ("turn your head, then smile") proves very little — a video replay does
  * all of it. So the challenge is only half of what runs here. Alongside it, six passive signals are
  * measured continuously from the landmark geometry and the face crop, and combined into one score:
  *
@@ -16,12 +16,20 @@
  *                real parallax of the head that was filmed, so depth does not catch that case;
  *                focus, texture and the single-use server nonce are what stand in its way.
  *   motion       non-rigid micro-motion. Shapes are normalised (translation, scale and in-plane
- *                rotation removed), then the brow and mouth points are measured against their own
- *                session mean. A rigid object carried in front of the lens has none of this.
- *   blink        a closure of human duration with a real open-closed-open transition, not a slow
- *                occlusion and not a single dropped frame. The closing half is measured against a
- *                threshold learned from this face; the opening half against the bottom of the
- *                closure itself, so a baseline that has drifted cannot hide an ordinary blink.
+ *                rotation removed), then the brow, eyelid and mouth points are measured against
+ *                their own session mean. A rigid object carried in front of the lens has none of
+ *                this. Eyelids are in that set deliberately: a blink still counts here, as raw
+ *                deformation the rigid pose cannot account for, rather than as an event some
+ *                threshold has to catch in the one or two frames a webcam gives it. Measuring it
+ *                this way needs no learned baseline, no noise floor and no duration window — which
+ *                is what let the open-closed-open detector, and everything that made it fragile, go.
+ *   response     reaction time. Each step of the challenge is timed from the moment it goes up in
+ *                front of the operator to the moment it is satisfied. A step banked on the first
+ *                frame it was shown was already satisfied before it was asked for; one answered a
+ *                quarter of a second to a few seconds later is a person reading a prompt and doing
+ *                what it says. This is what makes an active challenge worth anything: the steps and
+ *                their order are drawn by the server per nonce, so a recording made in advance
+ *                cannot have answered the one that is about to be asked.
  *   focus        Laplacian variance of the face crop. Rejects the blurry print and the low-grade
  *                replay, and doubles as a capture-quality gate.
  *   texture      screen-replay tell-tales: blown specular highlights and the narrowed chroma
@@ -35,8 +43,8 @@
  * read, measured and dropped, and nothing but a score ever leaves this module.
  */
 
-export type Challenge = "blink" | "turn_left" | "turn_right" | "smile";
-export type SignalId = "depth" | "motion" | "blink" | "focus" | "texture" | "consistency";
+export type Challenge = "turn_left" | "turn_right" | "smile";
+export type SignalId = "depth" | "motion" | "response" | "focus" | "texture" | "consistency";
 export type HintId = "center" | "closer" | "steady" | "light" | "multiple";
 
 export interface Point {
@@ -81,61 +89,20 @@ export interface FrameResult {
 
 export const TUNING = {
   /**
-   * Bootstrap thresholds only. Eye-aspect-ratio is NOT comparable between people: eye shape,
-   * camera angle and the landmark model's own precision put a wide-open eye anywhere between
-   * 0.20 and 0.35. Held as absolutes these two numbers fail closed on a whole class of faces —
-   * anyone whose open eye rests below `earOpen` can close it fully and never cross back above,
-   * so the blink is never banked and the step waits forever. After `earBaselineFrames` the
-   * session switches to thresholds proportional to a baseline learned from THIS face.
-   */
-  earClose: 0.2,
-  earOpen: 0.26,
-  /** Fractions of the learned open-eye baseline. */
-  earCloseRatio: 0.72,
-  earOpenRatio: 0.86,
-  /**
-   * How far back up from the bottom of a closure the eye must come for it to count as reopened,
-   * as a fraction of the distance from that bottom to the baseline.
+   * Reaction times for the `response` signal, in milliseconds.
    *
-   * This exists because `earOpenRatio` alone measures recovery against the wrong thing. The
-   * baseline is the 75th percentile of the recent window, so a face that was wide open while the
-   * prompt was being read and has since settled to its normal openness has a baseline describing
-   * the *earlier* face: the eye reopens completely, sits below `earOpenRatio` x baseline, and the
-   * closure is never banked. What the operator sees is a blink that does nothing — and then, when
-   * the window finally decays far enough to notice the eye is open, a closure lasting several
-   * seconds, which is rejected as an occlusion. Half way back from the bottom is unambiguous
-   * recovery no matter where the baseline has drifted to.
+   * Under `responseMinMs` the step was satisfied on the very first frame it was shown, so the pose
+   * was already being held when it was asked for. That is what a recording looks like — but it is
+   * also what someone who happens to already be smiling looks like, so it scores a fraction rather
+   * than a zero. From there to `responseComfortMs` is a person reading a prompt and doing what it
+   * says. Past that the reaction is still human, only slow, so it decays towards
+   * `responseSlowScore` at `responseSlowMs` rather than falling over a cliff.
    */
-  earReopenFraction: 0.5,
-  /**
-   * The most the closed-eye threshold may be dropped below the baseline, as a fraction of it.
-   *
-   * The noise term below is what stops landmark jitter being read as blinking, but it is unbounded,
-   * and on a jittery camera it can put the threshold under a genuinely closed eye — at which point
-   * no blink is detectable at all. A closed eye measures around 0.05-0.12 EAR against an open 0.3,
-   * so refusing to go below 55% of the baseline keeps the gate reachable while still demanding a
-   * real closure.
-   */
-  earCloseMaxDrop: 0.45,
-  /** Frames of EAR history before the learned baseline replaces the absolutes. */
-  earBaselineFrames: 8,
-  /** The baseline is clamped so a face held permanently half-shut cannot lower its own bar. */
-  earBaselineMin: 0.17,
-  earBaselineMax: 0.45,
-  /** Multiples of the EAR noise floor (MAD) a closure must clear to count as a real blink. */
-  earNoiseK: 3,
-  blinkMinMs: 60,
-  /**
-   * The prompt for this step reads "Blink slowly" — and it says that for a reason: a natural blink
-   * is 100-150 ms, which at a 15 fps webcam is one or two frames and is missed as often as it is
-   * caught. So the instruction asks for a deliberate closure, and a deliberate closure is 400 ms to
-   * a bit over a second. At 700 ms the detector was rejecting the exact thing it had just told the
-   * person to do, banking it as a `badBlink` and leaving the step waiting forever.
-   *
-   * 1200 ms accepts the instructed blink and still refuses an occlusion: swapping a face for a
-   * photo, or covering the lens, takes seconds, not one.
-   */
-  blinkMaxMs: 1200,
+  responseMinMs: 250,
+  responseFastScore: 0.35,
+  responseComfortMs: 6000,
+  responseSlowMs: 20000,
+  responseSlowScore: 0.4,
   /** Nose-tip offset in interocular units. 0.13 is about a 20-degree turn on a typical face. */
   yaw: 0.13,
   yawHoldFrames: 4,
@@ -146,8 +113,6 @@ export const TUNING = {
   depthCeil: 0.09,
   motionFloor: 0.004,
   motionCeil: 0.03,
-  earRangeFloor: 0.02,
-  earRangeCeil: 0.14,
   focusLogFloor: 0.7,
   focusLogCeil: 2.0,
   glareCeil: 0.05,
@@ -160,7 +125,7 @@ export const TUNING = {
   minDetectorScore: 0.5,
 } as const;
 
-const WEIGHTS: Record<SignalId, number> = { depth: 0.26, motion: 0.22, blink: 0.18, consistency: 0.12, focus: 0.12, texture: 0.1 };
+const WEIGHTS: Record<SignalId, number> = { depth: 0.28, motion: 0.26, response: 0.16, consistency: 0.12, focus: 0.1, texture: 0.08 };
 
 export const DEFAULT_MIN_SCORE = 0.45;
 
@@ -170,8 +135,15 @@ const LEFT_EYE = [42, 43, 44, 45, 46, 47];
 const NOSE_TIP = 30;
 /** Roughly coplanar with the face plane — the fit basis for the depth signal. */
 const PLANAR = [0, 8, 16, 17, 26, 36, 39, 42, 45];
-/** Independently mobile — brows and mouth, where a living face never holds perfectly still. */
-const MOBILE = [17, 19, 21, 22, 24, 26, 48, 51, 54, 57, 62, 66];
+/**
+ * Independently mobile — brows, eyelids and mouth, where a living face never holds perfectly still.
+ *
+ * The eyelid points here are the four per eye that are not corners: the corners (36, 39, 42, 45)
+ * anchor the planar fit above and barely move, while the lids ride up and down over them. Including
+ * them is what keeps a blink worth something now that nothing detects one — a closure is simply a
+ * large residual the rigid pose cannot explain, and that is what this signal already measures.
+ */
+const MOBILE = [17, 19, 21, 22, 24, 26, 37, 38, 40, 41, 43, 44, 46, 47, 48, 51, 54, 57, 62, 66];
 
 // ─── Small helpers ───────────────────────────────────────────────────────────
 
@@ -185,23 +157,14 @@ function centroid(points: Point[]): Point {
   return { x: mean(points.map((p) => p.x)), y: mean(points.map((p) => p.y)) };
 }
 
-function quantile(sorted: number[], q: number): number {
-  if (!sorted.length) return 0;
-  const i = clamp01(q) * (sorted.length - 1);
-  const lo = Math.floor(i);
-  const hi = Math.ceil(i);
-  return sorted[lo]! + (sorted[hi]! - sorted[lo]!) * (i - lo);
+/**
+ * What one reaction time is worth. See the `response` notes in TUNING for why instant is not free.
+ */
+function reactionScore(ms: number): number {
+  if (ms < TUNING.responseMinMs) return TUNING.responseFastScore;
+  if (ms <= TUNING.responseComfortMs) return 1;
+  return 1 - (1 - TUNING.responseSlowScore) * band(ms, TUNING.responseComfortMs, TUNING.responseSlowMs);
 }
-
-/** Eye aspect ratio over the six points around one eye. Low = closed. */
-export function eyeAspectRatio(points: Point[], idx: number[]): number {
-  const p = idx.map((i) => points[i]);
-  if (p.some((q) => !q)) return 1;
-  const horizontal = 2 * dist(p[0]!, p[3]!);
-  return horizontal === 0 ? 1 : (dist(p[1]!, p[5]!) + dist(p[2]!, p[4]!)) / horizontal;
-}
-
-export const openness = (points: Point[]) => (eyeAspectRatio(points, RIGHT_EYE) + eyeAspectRatio(points, LEFT_EYE)) / 2;
 
 export const interocular = (points: Point[]) =>
   dist(centroid(RIGHT_EYE.map((i) => points[i]!)), centroid(LEFT_EYE.map((i) => points[i]!))) || 1;
@@ -361,7 +324,10 @@ export class LivenessSession {
   private index = 0;
   private hold = 0;
   private stepProgress = 0;
-  private blinkArmed = false;
+  /** When the step now in progress first went up in front of the operator. */
+  private stepPromptedAt: number | null = null;
+  /** One reaction time per satisfied step, in ms. The `response` signal is the mean of their scores. */
+  private latencies: number[] = [];
 
   private reference: Point[] | null = null;
   private referenceScore = 0;
@@ -371,18 +337,7 @@ export class LivenessSession {
   private depthMeasured = false;
 
   private residualFrames: Point[][] = [];
-  private ears: number[] = [];
   private startedAt: number | null = null;
-
-  private closedAt: number | null = null;
-  /** The deepest EAR reached during the closure in progress — what recovery is measured from. */
-  private closedMin = 1;
-  /** The gates as they stood when the closure in progress began. See `trackBlink`. */
-  private closedGates: { close: number; open: number; base: number } | null = null;
-  private goodBlinks = 0;
-  private badBlinks = 0;
-  /** goodBlinks as of the start of the current step — a blink step needs one banked after this. */
-  private blinksAtStep = 0;
 
   private focusScores: number[] = [];
   private glares: number[] = [];
@@ -393,7 +348,7 @@ export class LivenessSession {
   private frames = 0;
 
   constructor(challenge: Challenge[], opts?: { minScore?: number }) {
-    this.challenge = challenge.length ? challenge : ["blink"];
+    this.challenge = challenge.length ? challenge : ["turn_left"];
     this.minScore = opts?.minScore ?? DEFAULT_MIN_SCORE;
   }
 
@@ -405,24 +360,24 @@ export class LivenessSession {
   push(frame: Frame): FrameResult {
     this.frames++;
     if (this.startedAt === null) this.startedAt = frame.t;
+    // The first step is on screen from the first frame that carries a face. Every later one is
+    // stamped the instant its predecessor is banked, down in `advance`.
+    if (this.stepPromptedAt === null) this.stepPromptedAt = frame.t;
     if (frame.faces > 1) this.sawCrowd = true;
     if (frame.descriptor) this.descriptors.push(frame.descriptor);
 
     const points = frame.points;
     const y = yaw(points);
-    const ear = openness(points);
-    this.ears.push(ear);
     this.yawMin = Math.min(this.yawMin, y);
     this.yawMax = Math.max(this.yawMax, y);
 
     this.trackReference(points, frame.score, y, frame.t);
     this.trackDepth(points, y);
     this.trackShape(points);
-    this.trackBlink(ear, frame.t);
     if (frame.crop) this.trackPixels(frame.crop);
 
     const hint = this.hint(frame);
-    this.advance(frame, ear, y);
+    this.advance(frame, y);
 
     return {
       stepIndex: this.index,
@@ -454,12 +409,13 @@ export class LivenessSession {
   }
 
   /**
-   * Where the brows and mouth sit once the whole rigid pose is mapped away.
+   * Where the brows, eyelids and mouth sit once the whole rigid pose is mapped away.
    *
    * The same affine map the depth signal uses is fitted on the coplanar points, then applied to the
-   * reference brow and mouth positions. Whatever is left over is movement the pose cannot explain.
-   * That distinction is the point: rotating a photograph moves every landmark by exactly this
-   * affine, so its residual stays flat, while a face that is talking, breathing or reacting does not.
+   * reference positions of the mobile ones. Whatever is left over is movement the pose cannot
+   * explain. That distinction is the point: rotating a photograph moves every landmark by exactly
+   * this affine, so its residual stays flat, while a face that is blinking, talking, breathing or
+   * reacting does not.
    */
   private trackShape(points: Point[]): void {
     if (!this.reference) return;
@@ -477,76 +433,6 @@ export class LivenessSession {
       }),
     );
     if (this.residualFrames.length > 240) this.residualFrames.shift();
-  }
-
-  /**
-   * Blink thresholds fitted to the face in front of us.
-   *
-   * The baseline is the 75th percentile of recent EARs — high enough to sit in the open state even
-   * if a quarter of the window is mid-blink, low enough not to chase one wide-eyed outlier. It is
-   * windowed to the last 90 frames so a session that starts squinting and then relaxes re-learns
-   * rather than averaging the two forever.
-   *
-   * Making the gate relative buys a second problem: on a low-EAR face the eye hexagon is only a few
-   * pixels tall, so ordinary landmark wobble is large *as a fraction of the baseline* and a purely
-   * proportional gate will bank phantom blinks out of noise. So the closure must clear BOTH the
-   * proportional drop and this camera's own noise floor, measured as the median absolute deviation
-   * of the same window. A steady camera keeps the proportional gate; a jittery one has to see a
-   * closure that genuinely stands out from its wobble.
-   */
-  private earGates(): { close: number; open: number; base: number } {
-    const w = this.ears.length > 90 ? this.ears.slice(-90) : this.ears;
-    if (w.length < TUNING.earBaselineFrames) return { close: TUNING.earClose, open: TUNING.earOpen, base: TUNING.earOpen / TUNING.earOpenRatio };
-    const sorted = [...w].sort((a, b) => a - b);
-    const base = Math.min(Math.max(quantile(sorted, 0.75), TUNING.earBaselineMin), TUNING.earBaselineMax);
-    const median = quantile(sorted, 0.5);
-    const mad = quantile(
-      w.map((e) => Math.abs(e - median)).sort((a, b) => a - b),
-      0.5,
-    );
-    const drop = Math.min(Math.max(base * (1 - TUNING.earCloseRatio), TUNING.earNoiseK * mad), base * TUNING.earCloseMaxDrop);
-    return { close: base - drop, open: base * TUNING.earOpenRatio, base };
-  }
-
-  /**
-   * The open-closed-open transition, judged against the closure it actually saw.
-   *
-   * The closing half is a threshold: the eye has to get below `close`, which is where the noise
-   * floor and the learned baseline do their work. The opening half deliberately is not. Recovery is
-   * measured from the bottom of *this* closure back towards the baseline, and either that or the
-   * baseline-relative `open` is enough — whichever the eye reaches first. Requiring the baseline
-   * alone is what made a completely normal blink invisible on a face whose baseline had drifted
-   * above where its eyes now rest.
-   */
-  private trackBlink(ear: number, t: number): void {
-    const live = this.earGates();
-    // The gates are frozen for the duration of a closure, and that is the whole reason an occlusion
-    // is still refused. The baseline is a quantile of the recent window, so a closure that lasts
-    // seconds ends up *in* that window and drags it down — a two-second hand over the lens pulled
-    // the baseline from 0.30 to the 0.17 clamp, taking `open` down to 0.146, which is below what the
-    // covered lens itself was reading. The occlusion then looked like an open eye: it broke into
-    // fragments, and the last fragment was short enough to pass for a blink. A reference for "how
-    // open is this eye normally" must not be learned from frames where the eye is shut, so once a
-    // closure starts, the gates it started under are the gates it is judged by.
-    const gates = this.closedGates ?? live;
-    if (ear < gates.close) {
-      if (this.closedAt === null) {
-        this.closedAt = t;
-        this.closedMin = ear;
-        this.closedGates = live;
-      } else if (ear < this.closedMin) {
-        this.closedMin = ear;
-      }
-      return;
-    }
-    if (this.closedAt === null) return;
-    const recovered = Math.min(gates.open, this.closedMin + (gates.base - this.closedMin) * TUNING.earReopenFraction);
-    if (ear <= recovered) return;
-    const ms = t - this.closedAt;
-    this.closedAt = null;
-    this.closedGates = null;
-    if (ms >= TUNING.blinkMinMs && ms <= TUNING.blinkMaxMs) this.goodBlinks++;
-    else this.badBlinks++;
   }
 
   private trackPixels(crop: NonNullable<Frame["crop"]>): void {
@@ -573,23 +459,21 @@ export class LivenessSession {
   }
 
   /** Judge the current challenge step and move on when it is satisfied. */
-  private advance(frame: Frame, ear: number, y: number): void {
+  private advance(frame: Frame, y: number): void {
     const step = this.challenge[this.index];
     if (!step) return;
     let satisfied = false;
 
-    if (step === "blink") {
-      // trackBlink has already validated the whole open→closed→open transition and its duration
-      // this frame, so the step is satisfied the instant it banks one. Re-deriving the transition
-      // here only added a frame of lag and a second chance to disagree with the signal.
-      const { close, open } = this.earGates();
-      if (ear < close) this.blinkArmed = true;
-      satisfied = this.goodBlinks > this.blinksAtStep;
-      this.stepProgress = satisfied ? 1 : this.blinkArmed ? 0.7 : clamp01(1 - ear / (open / TUNING.earOpenRatio));
-    } else if (step === "turn_left" || step === "turn_right") {
-      const wanted = step === "turn_left" ? y > TUNING.yaw : y < -TUNING.yaw;
+    if (step === "turn_left" || step === "turn_right") {
+      // Measured towards the side that was asked for, so progress can be shown while the head is
+      // still on its way rather than only once the threshold is crossed. Turns carry most of the
+      // challenge now, and an operator given no feedback until the very end either overshoots or
+      // gives up a few degrees short. The partial reading stops below 1 so that a full ring is only
+      // ever the hold actually completing.
+      const towards = step === "turn_left" ? y : -y;
+      const wanted = towards > TUNING.yaw;
       this.hold = wanted ? this.hold + 1 : 0;
-      this.stepProgress = Math.min(this.hold / TUNING.yawHoldFrames, 1);
+      this.stepProgress = wanted ? Math.min(this.hold / TUNING.yawHoldFrames, 1) : clamp01(towards / TUNING.yaw) * 0.8;
       satisfied = this.hold >= TUNING.yawHoldFrames;
     } else if (step === "smile") {
       const happy = frame.happy ?? 0;
@@ -598,12 +482,12 @@ export class LivenessSession {
     }
 
     if (!satisfied) return;
-    this.blinkArmed = false;
+    this.latencies.push(frame.t - (this.stepPromptedAt ?? frame.t));
+    // The next step goes up the moment this one is banked, so that is where its clock starts.
+    this.stepPromptedAt = frame.t;
     this.hold = 0;
     this.stepProgress = 0;
     this.index++;
-    // Bank the count so a later blink step needs a NEW blink rather than inheriting this one.
-    this.blinksAtStep = this.goodBlinks;
   }
 
   // ─── Scoring ───────────────────────────────────────────────────────────────
@@ -623,18 +507,17 @@ export class LivenessSession {
       y: mean(this.residualFrames.map((f) => f[j]!.y)),
     }));
     const deviation = mean(this.residualFrames.map((f) => mean(f.map((p, j) => dist(p, avg[j]!)))));
-    const sortedEars = [...this.ears].sort((a, b) => a - b);
-    const earRange = quantile(sortedEars, 0.9) - quantile(sortedEars, 0.1);
-    return clamp01(
-      0.6 * band(deviation, TUNING.motionFloor, TUNING.motionCeil) + 0.4 * band(earRange, TUNING.earRangeFloor, TUNING.earRangeCeil),
-    );
+    return band(deviation, TUNING.motionFloor, TUNING.motionCeil);
   }
 
-  private blinkSignal(): number | null {
-    if (this.frames < 8) return null;
-    if (this.goodBlinks > 0) return 1;
-    // A closure of implausible length is worse than no closure at all: it is what an occlusion looks like.
-    return this.badBlinks > 0 ? 0.15 : 0;
+  /**
+   * Unmeasurable until the first step is banked — before that there is no reaction to time, and
+   * scoring a challenge that has not been answered yet as a failure would sink every capture in its
+   * opening second.
+   */
+  private responseSignal(): number | null {
+    if (!this.latencies.length) return null;
+    return mean(this.latencies.map(reactionScore));
   }
 
   private consistencySignal(): number | null {
@@ -656,7 +539,7 @@ export class LivenessSession {
     const signals: Record<SignalId, number | null> = {
       depth: this.depthSignal(),
       motion: this.motionSignal(),
-      blink: this.blinkSignal(),
+      response: this.responseSignal(),
       focus: this.focusScores.length ? mean(this.focusScores) : null,
       texture: this.textureSignal(),
       consistency: this.consistencySignal(),

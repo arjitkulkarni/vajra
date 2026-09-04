@@ -7,7 +7,7 @@
  *   2. id_document    the employee ID card was supplied and is intact (signup mints it; login
  *                     re-verifies the stored ciphertext still hashes to what was approved)
  *   3. face_match     confidence that the live face is the enrolled face, 0-100
- *   4. liveness       the passive anti-spoof composite over depth · motion · blink · focus · texture
+ *   4. liveness       the passive anti-spoof composite over depth · motion · reaction · focus · texture
  *   5. did_signature  an Ed25519 signature over a single-use server nonce, by the enrolled key
  *
  * There is no device or fingerprint factor on purpose: the only biometric here is the face, and
@@ -96,7 +96,7 @@ const gate = (id: CheckRow["id"], pass: boolean, detailKey: string, score: numbe
  *
  * The passive composite is a weighted score over signals the capturing device measured for itself,
  * and it fails a capture that could not demonstrate enough of them — usually bad light, a face half
- * out of frame, or somebody who did not blink when asked. The live AI check is a classifier's
+ * out of frame, or somebody who never answered the challenge they were given. The live AI check is a classifier's
  * verdict on the same capture, and it fails a capture that looked like a print, a replay or a
  * rendered face. They fail different things, so they are reported as different detail keys: one
  * says try again, the other says an attack was seen, and the response ladder acts on that.

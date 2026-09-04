@@ -211,7 +211,7 @@ try {
       faceTemplateSamples: 6,
       faceTemplateModel: "adaface",
       role: "engineer",
-      evidence: { nonce: signupStart.nonce, signature: ed25519.sign(enrolKp.privateKey, signupStart.nonce), faceMatchScore: impostorScore, livenessMode: "faceapi", livenessScore: 0.8, livenessSignals: { depth: 0.7, motion: 0.7, blink: 1, focus: 0.6, texture: 0.6 } },
+      evidence: { nonce: signupStart.nonce, signature: ed25519.sign(enrolKp.privateKey, signupStart.nonce), faceMatchScore: impostorScore, livenessMode: "faceapi", livenessScore: 0.8, livenessSignals: { depth: 0.7, motion: 0.7, response: 1, focus: 0.6, texture: 0.6 } },
     }),
   }));
   check("a low face-match confidence is refused", lowScore.status === 403 && lowScore.json.error?.code === "verification_failed", lowScore.json);
@@ -232,7 +232,7 @@ try {
       faceTemplateSamples: 6,
       faceTemplateModel: "adaface",
       role: "engineer",
-      evidence: { nonce: signupStart.nonce, signature: ed25519.sign(enrolKp.privateKey, signupStart.nonce), faceMatchScore: genuineScore, livenessMode: "faceapi", livenessScore: 0.8, livenessSignals: { depth: 0.7, motion: 0.7, blink: 1, focus: 0.6, texture: 0.6 } },
+      evidence: { nonce: signupStart.nonce, signature: ed25519.sign(enrolKp.privateKey, signupStart.nonce), faceMatchScore: genuineScore, livenessMode: "faceapi", livenessScore: 0.8, livenessSignals: { depth: 0.7, motion: 0.7, response: 1, focus: 0.6, texture: 0.6 } },
     }),
   });
   check("a template whose model tag disagrees with its dimension is refused", mislabelled.status === 400 && mislabelled.json.error?.code === "validation_failed", mislabelled.json.error?.code);
@@ -249,7 +249,7 @@ try {
       faceTemplateSamples: 6,
       faceTemplateModel: "adaface",
       role: "engineer",
-      evidence: { nonce: signupStart2.nonce, signature: ed25519.sign(enrolKp.privateKey, signupStart2.nonce), faceMatchScore: genuineScore, livenessMode: "faceapi", livenessScore: 0.71, livenessSignals: { depth: 0.7, motion: 0.72, blink: 1, focus: 0.6, texture: 0.61 } },
+      evidence: { nonce: signupStart2.nonce, signature: ed25519.sign(enrolKp.privateKey, signupStart2.nonce), faceMatchScore: genuineScore, livenessMode: "faceapi", livenessScore: 0.71, livenessSignals: { depth: 0.7, motion: 0.72, response: 1, focus: 0.6, texture: 0.61 } },
     }),
   });
   check("a passing bundle enrols and waits for an administrator", submitted.status === 200 && submitted.json.enrolment?.status === "pending", submitted.json);
@@ -359,7 +359,7 @@ try {
   );
   const loggedIn = await call("POST", "/v1/auth/login/complete", {
     multipart: multipart([
-      { name: "payload", value: JSON.stringify({ employeeId: "CP-0042", deviceFingerprintHash: enrolFp, evidence: { nonce: loginStart.nonce, signature: ed25519.sign(enrolKp.privateKey, loginStart.nonce), faceMatchScore: genuineScore, livenessMode: "faceapi", livenessScore: 0.66, livenessSignals: { depth: 0.6, motion: 0.7, blink: 1, focus: 0.6, texture: 0.6 } } }) },
+      { name: "payload", value: JSON.stringify({ employeeId: "CP-0042", deviceFingerprintHash: enrolFp, evidence: { nonce: loginStart.nonce, signature: ed25519.sign(enrolKp.privateKey, loginStart.nonce), faceMatchScore: genuineScore, livenessMode: "faceapi", livenessScore: 0.66, livenessSignals: { depth: 0.6, motion: 0.7, response: 1, focus: 0.6, texture: 0.6 } } }) },
       { name: "faceImage", filename: "face.jpg", mime: "image/jpeg", body: "login-face-frame" },
     ]),
   });
@@ -370,7 +370,7 @@ try {
   const wrongKey = keyPairFromSecret("e2e-imposter");
   const imposter = await call("POST", "/v1/auth/login/complete", {
     multipart: multipart([
-      { name: "payload", value: JSON.stringify({ employeeId: "CP-0042", deviceFingerprintHash: enrolFp, evidence: { nonce: loginStart3.nonce, signature: ed25519.sign(wrongKey.privateKey, loginStart3.nonce), faceMatchScore: 91, livenessMode: "faceapi", livenessScore: 0.9, livenessSignals: { depth: 0.9, motion: 0.9, blink: 1, focus: 0.9, texture: 0.9 } } }) },
+      { name: "payload", value: JSON.stringify({ employeeId: "CP-0042", deviceFingerprintHash: enrolFp, evidence: { nonce: loginStart3.nonce, signature: ed25519.sign(wrongKey.privateKey, loginStart3.nonce), faceMatchScore: 91, livenessMode: "faceapi", livenessScore: 0.9, livenessSignals: { depth: 0.9, motion: 0.9, response: 1, focus: 0.9, texture: 0.9 } } }) },
       { name: "faceImage", filename: "face.jpg", mime: "image/jpeg", body: "imposter-frame" },
     ]),
   });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fitAffine, LivenessSession, planarityResidual, openness, TUNING, yaw, type Frame, type FrameResult, type Point } from "./liveness";
+import { DEFAULT_MIN_SCORE, fitAffine, LivenessSession, planarityResidual, TUNING, yaw, type Frame, type FrameResult, type Point } from "./liveness";
 
 /**
  * A synthetic 68-point face, so the geometry can be checked without a camera.
@@ -7,11 +7,15 @@ import { fitAffine, LivenessSession, planarityResidual, openness, TUNING, yaw, t
  * Points are laid out in a canonical frame with an interocular distance of 100 px, each carrying a
  * depth `z`. Rotating about the vertical axis and projecting is what separates the two cases the
  * depth signal exists to tell apart: a flat photo has z = 0 everywhere, a real head does not.
+ *
+ * `ear` sets how far the eyelid points sit from the eye corners. Nothing measures it as an aspect
+ * ratio any more — it is here because closing the lids is a deformation the micro-motion signal is
+ * supposed to see.
  */
 function face(opts: { yaw?: number; noseZ?: number; ear?: number; jitter?: number; seed?: number } = {}): Point[] {
   const { yaw: theta = 0, noseZ = 0, ear = 0.3, jitter = 0, seed = 1 } = opts;
   const points: [number, number, number][] = Array.from({ length: 68 }, () => [0, 20, 0]);
-  const h = ear * 15; // EAR = h/15 for the hexagon below
+  const h = ear * 15;
   const eye = (cx: number): [number, number, number][] => [
     [cx - 15, 0, 0],
     [cx - 7, -h, 0],
@@ -88,11 +92,6 @@ describe("geometry", () => {
     // A flat image rotated the same amount produces no yaw at all: the nose has nowhere to go.
     expect(yaw(face({ yaw: 0.4, noseZ: 0 }))).toBeCloseTo(0, 6);
   });
-
-  it("reads a closed eye as low openness", () => {
-    expect(openness(face({ ear: 0.3 }))).toBeCloseTo(0.3, 6);
-    expect(openness(face({ ear: 0.08 }))).toBeLessThan(0.2);
-  });
 });
 
 describe("depth signal", () => {
@@ -113,22 +112,38 @@ describe("depth signal", () => {
 });
 
 describe("LivenessSession", () => {
-  /** A head that turns, blinks and never holds perfectly still. */
-  function livePass(): LivenessSession {
-    const session = new LivenessSession(["blink", "turn_left"]);
+  /**
+   * A head that turns when asked, smiles when asked, blinks along the way and never holds perfectly
+   * still. Nothing detects the blink any more — it arrives as eyelid deformation the rigid pose
+   * cannot account for, which is all the micro-motion signal ever needed from it.
+   */
+  function livePass(): { session: LivenessSession; last: FrameResult } {
+    const session = new LivenessSession(["turn_left", "smile"]);
     const descriptor = new Float32Array(128).fill(0.1);
+    let last!: FrameResult;
+    let step = 0;
+    let promptedAt = 0;
     let t = 0;
-    for (let i = 0; i < 60; i++) {
+    for (let i = 0; i < 80; i++) {
       t += 33;
+      // Ten frames of settling so the frontal reference is banked, then the turn; the smile only
+      // once the turn is accepted, and only after the pause a person takes to read the next prompt.
+      const turning = step === 0 && i > 10;
+      const smiling = step === 1 && i > promptedAt + 10;
       const blinking = i % 14 === 6 || i % 14 === 7;
-      const turning = i > 30;
-      session.push(
+      last = session.push(
         frame(face({ yaw: turning ? 0.4 : 0, noseZ: 35, ear: blinking ? 0.08 : 0.3, jitter: 2, seed: i + 1 }), t, {
+          happy: smiling ? 0.9 : 0.05,
           descriptor: i % 12 === 0 ? descriptor : null,
         }),
       );
+      if (last.stepIndex !== step) {
+        step = last.stepIndex;
+        promptedAt = i;
+      }
+      if (last.complete) break;
     }
-    return session;
+    return { session, last };
   }
 
   /** The turn challenge attempted with a photograph — printed, or held up on a phone. */
@@ -149,79 +164,57 @@ describe("LivenessSession", () => {
   }
 
   it("passes a live face", () => {
-    const verdict = livePass().verdict();
+    const { session, last } = livePass();
+    const verdict = session.verdict();
+    expect(last.complete).toBe(true);
     expect(verdict.signals.depth).toBe(1);
-    expect(verdict.signals.blink).toBe(1);
+    expect(verdict.signals.response).toBe(1);
     expect(verdict.signals.motion).toBeGreaterThan(0);
     expect(verdict.passed).toBe(true);
   });
 
   /**
-   * Regression: narrow eyes. This face's *open* EAR is 0.23 — below the absolute `earOpen` of
-   * 0.26 the session used to reopen on — so every closure was recorded and none was ever released:
-   * `closedAt` never cleared, no blink was ever banked, and the blink step waited forever while the
-   * operator sat there blinking at it. Thresholds now scale to the face, so this passes.
+   * The eyelids are in the mobile set, so a blink is still worth something — as deformation, with no
+   * threshold, no learned baseline and no duration window to miss it by a frame. That is what let
+   * the open-closed-open detector be deleted rather than replaced.
    */
-  it("banks a blink from a face whose open eye never crosses the old absolute threshold", () => {
-    const session = new LivenessSession(["blink"]);
-    let last!: FrameResult;
-    let t = 0;
-    for (let i = 0; i < 30; i++) {
-      t += 33;
-      const blinking = i >= 20 && i <= 21;
-      last = session.push(frame(face({ ear: blinking ? 0.12 : 0.23, jitter: 2, seed: i + 1 }), t));
-    }
-    expect(0.23).toBeLessThan(TUNING.earOpen); // the precondition that used to break it
-    expect(last.complete).toBe(true);
-    expect(last.stepIndex).toBe(1);
-    expect(session.verdict().signals.blink).toBe(1);
+  it("reads a blink as micro-motion the rigid pose cannot explain", () => {
+    const measure = (blinks: boolean) => {
+      const session = new LivenessSession(["smile"]);
+      for (let i = 0; i < 40; i++) {
+        const closed = blinks && (i % 14 === 6 || i % 14 === 7);
+        // A steady hand and a steady detector, so the lids are almost the only thing moving.
+        session.push(frame(face({ ear: closed ? 0.08 : 0.3, jitter: 0.6, seed: i + 1 }), i * 33));
+      }
+      return session.verdict().signals.motion!;
+    };
+    expect(measure(true)).toBeGreaterThan(measure(false));
   });
 
   /**
-   * Regression: the step says "Blink slowly", so a slow blink has to count. A deliberate ~800 ms
-   * closure used to land outside the 700 ms window and be banked as a `badBlink`, which left the
-   * step waiting on the one behaviour it had asked for.
+   * A step banked on the first frame it was shown was being held before it was asked for — which is
+   * what a recording of someone running through the poses looks like. It is scored down, not out: a
+   * person can also happen to already be smiling.
    */
-  it("accepts the deliberate slow blink the prompt asks for", () => {
-    const session = new LivenessSession(["blink"]);
+  it("marks down a step that was answered before it was asked", () => {
+    const session = new LivenessSession(["turn_left"]);
     let last!: FrameResult;
-    let t = 0;
-    for (let i = 0; i < 45; i++) {
-      t += 33;
-      const blinking = i >= 20 && i <= 43; // ~800 ms of closure
-      last = session.push(frame(face({ ear: blinking ? 0.1 : 0.3, jitter: 1, seed: i + 1 }), t));
+    for (let i = 0; i < 20; i++) {
+      last = session.push(frame(face({ yaw: 0.4, noseZ: 35, jitter: 1, seed: i + 1 }), i * 33));
       if (last.complete) break;
     }
     expect(last.complete).toBe(true);
-    expect(session.verdict().signals.blink).toBe(1);
+    expect(session.verdict().signals.response).toBeCloseTo(TUNING.responseFastScore, 6);
   });
 
-  /** But a closure long enough to be an occlusion is still refused, not merely un-banked. */
-  it("refuses a closure long enough to be an occlusion", () => {
-    const session = new LivenessSession(["blink"]);
-    let last!: FrameResult;
-    let t = 0;
-    for (let i = 0; i < 90; i++) {
-      t += 33;
-      const covered = i >= 15 && i <= 75; // ~2 s — a hand, or a swapped photo
-      last = session.push(frame(face({ ear: covered ? 0.1 : 0.3, jitter: 1, seed: i + 1 }), t));
-    }
-    expect(last.complete).toBe(false);
-    expect(session.verdict().signals.blink).toBeLessThan(0.5);
-  });
-
-  /** A face held rigidly open still banks nothing — the adaptive baseline must not invent a blink. */
-  it("does not invent a blink for a face that never closes its eyes", () => {
-    const session = new LivenessSession(["blink"]);
-    let last!: FrameResult;
-    let t = 0;
-    for (let i = 0; i < 30; i++) {
-      t += 33;
-      last = session.push(frame(face({ ear: 0.23, jitter: 2, seed: i + 1 }), t));
-    }
-    expect(last.complete).toBe(false);
-    expect(last.stepIndex).toBe(0);
-    expect(session.verdict().signals.blink).toBe(0);
+  /** Progress has to move while the head is on its way, not only once the threshold is crossed. */
+  it("reports partial progress on a head part way through its turn", () => {
+    const session = new LivenessSession(["turn_left"]);
+    const points = face({ yaw: 0.25, noseZ: 35 });
+    expect(yaw(points)).toBeLessThan(TUNING.yaw);
+    const half = session.push(frame(points, 33));
+    expect(half.stepProgress).toBeGreaterThan(0.4);
+    expect(half.stepProgress).toBeLessThan(1);
   });
 
   it("fails a flat photo attempting the same challenge", () => {
@@ -232,49 +225,56 @@ describe("LivenessSession", () => {
     expect(last.complete).toBe(false);
     expect(last.stepIndex).toBe(0);
     const verdict = session.verdict();
-    // With no yaw there is also no parallax to measure, so depth reports honestly rather than
-    // claiming a pass. What is measurable — no blink, no micro-motion — sinks the score anyway.
+    // With no yaw there is no parallax to measure, and with no step banked there is no reaction to
+    // time, so both report honestly rather than claiming a pass. What is measurable — no
+    // micro-motion at all, from brows, lids or mouth — sinks the score anyway.
     expect(verdict.signals.depth).toBeNull();
-    expect(verdict.signals.blink).toBe(0);
+    expect(verdict.signals.response).toBeNull();
     expect(verdict.signals.motion).toBeLessThan(0.1);
-    expect(verdict.score).toBeLessThan(0.3);
+    expect(verdict.score).toBeLessThan(DEFAULT_MIN_SCORE);
     expect(verdict.passed).toBe(false);
   });
 
   it("reports a signal it could not measure as null rather than zero", () => {
     // No turn was asked for and none happened, so depth is unmeasurable — and must not be scored as
-    // a failure. Blink alone still carries the verdict.
-    const session = new LivenessSession(["blink"]);
+    // a failure. What was asked for was answered, and that carries the verdict.
+    const session = new LivenessSession(["smile"]);
     const descriptor = new Float32Array(128).fill(0.1);
+    let last!: FrameResult;
     for (let i = 0; i < 40; i++) {
       const blinking = i % 14 === 6 || i % 14 === 7;
-      session.push(
-        frame(face({ noseZ: 35, ear: blinking ? 0.08 : 0.3, jitter: 2, seed: i + 1 }), i * 33, { descriptor: i % 12 === 0 ? descriptor : null }),
+      last = session.push(
+        frame(face({ noseZ: 35, ear: blinking ? 0.08 : 0.3, jitter: 2, seed: i + 1 }), i * 33, {
+          happy: i > 10 ? 0.9 : 0.05,
+          descriptor: i % 12 === 0 ? descriptor : null,
+        }),
       );
+      if (last.complete) break;
     }
     const verdict = session.verdict();
+    expect(last.complete).toBe(true);
     expect(verdict.signals.depth).toBeNull();
-    expect(verdict.signals.blink).toBe(1);
+    expect(verdict.signals.response).toBe(1);
     expect(verdict.passed).toBe(true);
   });
 
   it("fails when a second face appears mid-challenge", () => {
-    const session = new LivenessSession(["blink", "turn_left"]);
+    const session = new LivenessSession(["turn_left", "smile"]);
     for (let i = 0; i < 40; i++) {
-      const blinking = i % 14 === 6 || i % 14 === 7;
-      session.push(frame(face({ yaw: i > 20 ? 0.4 : 0, noseZ: 35, ear: blinking ? 0.08 : 0.3, jitter: 2, seed: i + 1 }), i * 33, { faces: i === 25 ? 2 : 1 }));
+      session.push(frame(face({ yaw: i > 20 ? 0.4 : 0, noseZ: 35, jitter: 2, seed: i + 1 }), i * 33, { faces: i === 25 ? 2 : 1 }));
     }
     expect(session.verdict().signals.consistency).toBe(0);
   });
 
   it("drives the challenge steps in order", () => {
-    const session = new LivenessSession(["blink", "turn_left"]);
+    const session = new LivenessSession(["turn_left", "smile"]);
     let last = session.push(frame(face(), 0));
     expect(last.stepIndex).toBe(0);
-    for (let i = 1; i < 60; i++) {
-      const blinking = i > 2 && i < 6;
-      const turning = last.stepIndex > 0;
-      last = session.push(frame(face({ yaw: turning ? 0.4 : 0, noseZ: 35, ear: blinking ? 0.08 : 0.3, jitter: 1, seed: i }), i * 33));
+    for (let i = 1; i < 80; i++) {
+      const turning = last.stepIndex === 0 && i > 2;
+      last = session.push(
+        frame(face({ yaw: turning ? 0.4 : 0, noseZ: 35, jitter: 1, seed: i }), i * 33, { happy: last.stepIndex >= 1 ? 0.9 : 0.05 }),
+      );
       if (last.complete) break;
     }
     expect(last.complete).toBe(true);

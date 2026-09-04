@@ -375,7 +375,7 @@ export type PublicKeyJwk = z.infer<typeof PublicKeyJwkSchema>;
 
 export const OnboardStartResponseSchema = z.object({
   nonce: z.string(),
-  challenge: z.array(z.enum(["blink", "turn_left", "turn_right", "smile"])),
+  challenge: z.array(z.enum(["turn_left", "turn_right", "smile"])),
   expiresAt: z.string(),
 });
 export type OnboardStartResponse = z.infer<typeof OnboardStartResponseSchema>;
@@ -466,7 +466,7 @@ export type FaceEvidence = z.infer<typeof FaceEvidenceSchema>;
 
 export const SignupStartResponseSchema = z.object({
   nonce: z.string(),
-  challenge: z.array(z.enum(["blink", "turn_left", "turn_right", "smile"])),
+  challenge: z.array(z.enum(["turn_left", "turn_right", "smile"])),
   expiresAt: z.string(),
   faceMatchThreshold: z.number().int().min(0).max(100),
   livenessThreshold: z.number().int().min(0).max(100),
@@ -550,7 +550,7 @@ export type SignupSubmitResponse = z.infer<typeof SignupSubmitResponseSchema>;
 
 export const LoginStartResponseSchema = z.object({
   nonce: z.string(),
-  challenge: z.array(z.enum(["blink", "turn_left", "turn_right", "smile"])),
+  challenge: z.array(z.enum(["turn_left", "turn_right", "smile"])),
   expiresAt: z.string(),
   did: z.string(),
   displayName: z.string(),
@@ -601,7 +601,7 @@ export type AccessRequestBody = z.infer<typeof AccessRequestBodySchema>;
 
 export const StepUpChallengeSchema = z.object({
   nonce: z.string(),
-  challenge: z.array(z.enum(["blink", "turn_left", "turn_right", "smile"])),
+  challenge: z.array(z.enum(["turn_left", "turn_right", "smile"])),
   expiresAt: z.string(),
 });
 

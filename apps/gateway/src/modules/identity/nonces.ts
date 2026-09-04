@@ -7,13 +7,21 @@ import { ApiError } from "../../lib/errors";
 export type NoncePurpose = "signup" | "login" | "onboard" | "step_up" | "approval" | "revoke" | "close_incident" | "policy" | "break_glass";
 export const NONCE_TTL_MS = 2 * 60 * 1000;
 
-export type ChallengeStep = "blink" | "turn_left" | "turn_right" | "smile";
+export type ChallengeStep = "turn_left" | "turn_right" | "smile";
 
+/**
+ * Every set asks for a head turn, and the turn is what the browser's depth signal needs to have
+ * anything to measure: without one, out-of-plane structure is reported as unmeasured and the
+ * composite falls back on signals a flat photo has a much easier time of. The second step varies so
+ * that the pair drawn for one nonce is not the pair a recording was made against.
+ */
 const CHALLENGES: ChallengeStep[][] = [
-  ["blink", "turn_left"],
-  ["blink", "turn_right"],
-  ["blink", "smile"],
-  ["turn_left", "blink"],
+  ["turn_left", "smile"],
+  ["turn_right", "smile"],
+  ["smile", "turn_left"],
+  ["smile", "turn_right"],
+  ["turn_left", "turn_right"],
+  ["turn_right", "turn_left"],
 ];
 
 export async function createNonce(
