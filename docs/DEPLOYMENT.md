@@ -30,10 +30,17 @@ cold start of roughly a minute — and its filesystem is ephemeral. The embedded
 asset store therefore come back empty *together*, and `DEMO_MODE=true` reseeds them at boot, so the
 state is always coherent, just young. For a judged demo, wake it before you present.
 
-**Making state last.** Add a Render Postgres and set `DB_MODE=postgres` with its `DATABASE_URL`,
-*and* attach a disk for the asset store with `STORAGE_DIR` pointed into the mount. Do both or
-neither: a database that survives a restart while the asset store does not leaves audit rows and
-passports referring to content that is gone.
+**Making state last.** Set `DB_MODE=postgres` and fill in `DATABASE_URL` — the blueprint leaves the
+slot empty for you, and any managed Postgres does, a Render one or a Neon branch — *and* attach a
+disk for the asset store with `STORAGE_DIR` pointed into the mount. Do both or neither: a database
+that survives a restart while the asset store does not leaves audit rows and passports referring to
+content that is gone.
+
+A managed database is a database over a network, and it behaves like one: Neon and friends hang up
+on connections that have been idle a few minutes, and a resuming branch can drop the first one after
+the migration. The gateway expects all of that — the pool retires its own clients early, keeps the
+sockets warm, and treats a dropped connection as a logged warning rather than an exit — so the
+service rides out a disconnect instead of restarting into the same race.
 
 Any other Node host works the same way — the build and start commands in the blueprint are the whole
 contract, and `PORT` is read from the environment.

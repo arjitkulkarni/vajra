@@ -35,6 +35,15 @@ services:
       # "Switching on the real thing" for what each one swaps to.
       - key: DB_MODE
         value: pglite
+
+      # Left empty by the blueprint, and only read when DB_MODE is 'postgres'. Point DB_MODE at
+      # 'postgres' and paste a connection string here — a Render Postgres, or a Neon branch — and the
+      # hash chain outlives the instance. Pair it with a disk and STORAGE_DIR (see the note above the
+      # services block): a database that survives a restart while the asset store does not leaves
+      # audit rows and passports citing content that is gone.
+      - key: DATABASE_URL
+        sync: false
+
       - key: LEDGER_MODE
         value: lite
       - key: STORAGE_MODE
