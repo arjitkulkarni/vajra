@@ -34,7 +34,7 @@ export async function buildApp(overrides: Partial<Record<keyof Config, string>> 
     bodyLimit: 30 * 1024 * 1024,
   });
 
-  const dbHandle = await createDb(config);
+  const dbHandle = await createDb(config, app.log);
   const storage = createStorage(config);
   const keyPair = keyPairFromSecret(config.PROOF_SIGNING_SEED);
   const health = new HealthService(config);

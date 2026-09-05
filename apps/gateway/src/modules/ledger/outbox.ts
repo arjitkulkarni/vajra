@@ -46,7 +46,14 @@ export class OutboxWorker {
 
   start(): void {
     if (this.timer) return;
-    this.timer = setInterval(() => void this.tick(), this.intervalMs);
+    /*
+     * The timer owns this promise, so nothing else can catch it: an unhandled rejection here — a
+     * dropped database connection is the usual one — would terminate the process. A failed round is
+     * survivable by construction (rows stay `pending`), so log it and let the next tick retry.
+     */
+    this.timer = setInterval(() => {
+      this.tick().catch((e) => this.log.warn({ err: (e as Error).message }, "outbox tick failed; retrying next interval"));
+    }, this.intervalMs);
     this.timer.unref();
   }
 
